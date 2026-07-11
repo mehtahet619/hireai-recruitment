@@ -450,3 +450,77 @@ header {
 .auth-divider::before, .auth-divider::after {
   content: ""; flex: 1; height: 1px; background: #d0d7de;
 }
+
+/* ============================================================
+   Pricing
+   ============================================================ */
+.pricing-page { max-width: 1000px; margin: 0 auto; }
+.pricing-header { text-align: center; margin-bottom: 32px; }
+.pricing-header h2 { font-size: 28px; margin: 0 0 8px; }
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 860px) { .pricing-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 540px) { .pricing-grid { grid-template-columns: 1fr; } }
+
+.pricing-card {
+  background: #fff; border: 1px solid #d0d7de; border-radius: 12px;
+  padding: 24px; position: relative; display: flex; flex-direction: column; gap: 16px;
+  transition: box-shadow 0.15s;
+}
+.pricing-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+.pricing-card.featured {
+  border-color: #1f6feb; box-shadow: 0 0 0 2px #1f6feb22;
+}
+.pricing-card.active-plan { border-color: #2da44e; }
+
+.popular-badge {
+  position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+  background: #1f6feb; color: #fff; font-size: 11px; font-weight: 700;
+  padding: 3px 12px; border-radius: 999px; white-space: nowrap;
+}
+.active-badge {
+  position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+  background: #2da44e; color: #fff; font-size: 11px; font-weight: 700;
+  padding: 3px 12px; border-radius: 999px; white-space: nowrap;
+}
+
+.pricing-card-header h3 { margin: 0 0 8px; font-size: 16px; }
+.price { display: flex; align-items: baseline; gap: 2px; }
+.price-currency { font-size: 18px; font-weight: 700; color: #1f2328; }
+.price-amount { font-size: 36px; font-weight: 800; color: #1f2328; }
+.price-period { font-size: 13px; color: #57606a; margin-left: 2px; }
+
+.feature-list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 8px; flex: 1;
+}
+.feature-list li { font-size: 13px; color: #1f2328; }
+
+.pricing-cta { margin-top: auto; }
+.pricing-cta button { width: 100%; justify-content: center; }
+
+.pricing-note {
+  text-align: center; margin-top: 24px; font-size: 12px;
+}
+
+.current-plan-banner {
+  background: #dafbe1; border: 1px solid #2da44e44;
+  border-radius: 8px; padding: 10px 16px; margin-bottom: 20px;
+  font-size: 14px; text-align: center;
+}
+
+/* Upgrade banner in dashboard */
+.upgrade-banner {
+  display: flex; align-items: center; justify-content: space-between;
+  background: #fff8c5; border: 1px solid #d4a72c55;
+  border-radius: 8px; padding: 12px 16px; margin-bottom: 20px;
+  font-size: 14px; flex-wrap: wrap; gap: 10px;
+}
+.upgrade-banner button {
+  background: #bf8700; padding: 6px 14px; font-size: 13px;
+}

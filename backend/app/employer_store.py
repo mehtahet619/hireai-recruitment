@@ -17,6 +17,11 @@ _memory_applications: dict[str, str] = {}
 
 EMPLOYER_TTL = 60 * 60 * 24 * 365  # 1 year
 
+PLANS = {
+    "starter": {"name": "Starter", "price": 99, "job_limit": 3},
+    "growth":  {"name": "Growth",  "price": 199, "job_limit": 20},
+    "enterprise": {"name": "Enterprise", "price": None, "job_limit": None},
+}
 
 def _valkey():
     settings = get_settings()
@@ -44,6 +49,8 @@ class Employer:
     email: str
     password_hash: str
     company_name: str
+    plan: str = "free"           # free | starter | growth | enterprise
+    plan_expires_at: str | None = None
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
@@ -319,3 +326,56 @@ def list_job_applications(job_id: str) -> list[Application]:
             apps.append(a)
     apps.sort(key=lambda a: a.created_at, reverse=True)
     return apps
+
+
+# ---------- Plan helpers ----------
+
+def employer_can_post_job(employer_id: str) -> tuple[bool, str]:
+    """Returns (allowed, reason). Free plan cannot post jobs."""
+    emp = get_employer(employer_id)
+    if not emp:
+        return False, "Employer not found"
+    if emp.plan == "free":
+        return False, "upgrade_required"
+    if emp.plan == "enterprise":
+        return True, ""
+    # Check expiry
+    if emp.plan_expires_at:
+        from datetime import datetime, timezone
+        exp = datetime.fromisoformat(emp.plan_expires_at)
+        if datetime.now(timezone.utc) > exp:
+            # Downgrade to free
+            emp.plan = "free"
+            emp.plan_expires_at = None
+            _save_employer(emp)
+            return False, "plan_expired"
+    limit = PLANS.get(emp.plan, {}).get("job_limit")
+    if limit is not None:
+        jobs = list_employer_jobs(employer_id)
+        active = [j for j in jobs if j.is_active]
+        if len(active) >= limit:
+            return False, f"job_limit_reached:{limit}"
+    return True, ""
+
+
+def _save_employer(emp: Employer) -> None:
+    payload = json.dumps(asdict(emp))
+    client = _valkey()
+    if client:
+        client.setex(_emp_key(emp.employer_id), EMPLOYER_TTL, payload)
+        client.setex(_emp_email_key(emp.email), EMPLOYER_TTL, emp.employer_id)
+    else:
+        _memory_employers[_emp_key(emp.employer_id)] = payload
+        _memory_employers[_emp_email_key(emp.email)] = emp.employer_id
+
+
+def activate_plan(employer_id: str, plan: str) -> Employer:
+    from datetime import datetime, timezone, timedelta
+    emp = get_employer(employer_id)
+    if not emp:
+        raise ValueError("Employer not found")
+    emp.plan = plan
+    # 31-day subscription window
+    emp.plan_expires_at = (datetime.now(timezone.utc) + timedelta(days=31)).isoformat()
+    _save_employer(emp)
+    return emp

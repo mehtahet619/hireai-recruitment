@@ -131,3 +131,16 @@ class BanUserRequest(BaseModel):
 
 class UnbanUserRequest(BaseModel):
     candidate_id: str = Field(..., min_length=1)
+
+
+# ---------- Payments ----------
+
+class CreateOrderRequest(BaseModel):
+    plan: str = Field(..., pattern="^(starter|growth)$")
+
+
+class VerifyPaymentRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+    plan: str
