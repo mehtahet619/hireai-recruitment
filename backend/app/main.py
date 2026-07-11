@@ -23,6 +23,8 @@ from .schemas import (
     JobUpdateRequest,
     ApplicationSubmitRequest,
     GoogleAuthRequest,
+    CreateOrderRequest,
+    VerifyPaymentRequest,
 )
 from .pipeline import (
     parse_jd,
@@ -56,6 +58,9 @@ from .employer_store import (
     get_application,
     update_application,
     list_job_applications,
+    employer_can_post_job,
+    activate_plan,
+    PLANS,
 )
 from .auth import create_token, get_current_employer
 import json
@@ -456,6 +461,9 @@ async def api_create_job(req: JobCreateRequest,
     claims = get_current_employer(authorization)
     if not claims:
         raise HTTPException(status_code=401, detail="Unauthorized")
+    allowed, reason = employer_can_post_job(claims["sub"])
+    if not allowed:
+        raise HTTPException(status_code=403, detail=reason)
     try:
         job = create_job(
             employer_id=claims["sub"],
@@ -720,4 +728,105 @@ async def api_get_applicant(application_id: str,
         "transcript": session.transcript if session else [],
         "review_id": app.review_id,
         "created_at": app.created_at,
+    }
+
+
+# ============================================================
+# Pricing & Payments (Razorpay)
+# ============================================================
+
+PLAN_PRICES_PAISE = {
+    "starter": 9900,   # ₹99 in paise
+    "growth":  19900,  # ₹199 in paise
+}
+
+
+@app.get("/api/pricing")
+async def api_pricing():
+    """Public: return plan details."""
+    return {
+        "plans": [
+            {"id": "starter", "name": "Starter", "price": 99, "currency": "INR",
+             "job_limit": 3, "features": ["3 active job postings", "AI interviews", "Candidate scoring", "Email support"]},
+            {"id": "growth", "name": "Growth", "price": 199, "currency": "INR",
+             "job_limit": 20, "features": ["20 active job postings", "AI interviews", "Candidate scoring", "Priority support", "Analytics"]},
+            {"id": "enterprise", "name": "Enterprise", "price": None, "currency": "INR",
+             "job_limit": None, "features": ["Unlimited postings", "Custom AI tuning", "Dedicated support", "SLA", "Custom integrations"]},
+        ]
+    }
+
+
+@app.post("/api/employer/payment/create-order")
+async def api_create_order(req: CreateOrderRequest,
+                           authorization: Annotated[str | None, Header()] = None):
+    """Create a Razorpay order for the selected plan."""
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    if not settings.razorpay_key_id or not settings.razorpay_key_secret:
+        raise HTTPException(status_code=501, detail="Payment gateway not configured")
+    try:
+        import razorpay
+        client = razorpay.Client(auth=(settings.razorpay_key_id, settings.razorpay_key_secret))
+        order = client.order.create({
+            "amount": PLAN_PRICES_PAISE[req.plan],
+            "currency": "INR",
+            "notes": {
+                "employer_id": claims["sub"],
+                "plan": req.plan,
+            }
+        })
+        return {
+            "order_id": order["id"],
+            "amount": order["amount"],
+            "currency": order["currency"],
+            "key_id": settings.razorpay_key_id,
+            "plan": req.plan,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/employer/payment/verify")
+async def api_verify_payment(req: VerifyPaymentRequest,
+                              authorization: Annotated[str | None, Header()] = None):
+    """Verify Razorpay signature and activate plan."""
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    if not settings.razorpay_key_secret:
+        raise HTTPException(status_code=501, detail="Payment gateway not configured")
+    try:
+        import razorpay
+        client = razorpay.Client(auth=(settings.razorpay_key_id, settings.razorpay_key_secret))
+        client.utility.verify_payment_signature({
+            "razorpay_order_id": req.razorpay_order_id,
+            "razorpay_payment_id": req.razorpay_payment_id,
+            "razorpay_signature": req.razorpay_signature,
+        })
+    except Exception:
+        raise HTTPException(status_code=400, detail="Payment verification failed — invalid signature")
+
+    emp = activate_plan(claims["sub"], req.plan)
+    return {
+        "success": True,
+        "plan": emp.plan,
+        "plan_expires_at": emp.plan_expires_at,
+        "message": f"{PLANS[req.plan]['name']} plan activated successfully",
+    }
+
+
+@app.get("/api/employer/plan")
+async def api_get_plan(authorization: Annotated[str | None, Header()] = None):
+    """Return current employer plan status."""
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    emp = get_employer(claims["sub"])
+    if not emp:
+        raise HTTPException(status_code=404, detail="Not found")
+    return {
+        "plan": emp.plan,
+        "plan_expires_at": emp.plan_expires_at,
+        "can_post_jobs": emp.plan != "free",
     }

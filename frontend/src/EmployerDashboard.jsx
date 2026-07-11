@@ -165,22 +165,41 @@ function ApplicantsList({ job, token, onBack }) {
   );
 }
 
-export default function EmployerDashboard({ user, token, onLogout }) {
+export default function EmployerDashboard({ user, token, onLogout, onUpgrade }) {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedJob, setSelectedJob] = useState(null);
   const [showNewJob, setShowNewJob] = useState(false);
+  const [plan, setPlan] = useState(null);
 
   async function loadJobs() {
     setLoading(true);
     listEmployerJobs(token).then(setJobs).finally(() => setLoading(false));
   }
 
-  useEffect(() => { loadJobs(); }, []);
+  async function loadPlan() {
+    try {
+      const BASE = import.meta.env.VITE_API_BASE || "";
+      const res = await fetch(`${BASE}/api/employer/plan`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setPlan(await res.json());
+    } catch (_) {}
+  }
+
+  useEffect(() => { loadJobs(); loadPlan(); }, []);
 
   async function toggleJob(job) {
     await updateJob(job.job_id, { is_active: !job.is_active }, token);
     loadJobs();
+  }
+
+  async function handleNewJobClick() {
+    if (plan && plan.plan === "free") {
+      onUpgrade && onUpgrade();
+      return;
+    }
+    setShowNewJob(true);
   }
 
   if (selectedJob) {
@@ -200,9 +219,16 @@ export default function EmployerDashboard({ user, token, onLogout }) {
       {showNewJob ? (
         <NewJobForm token={token} onCreated={() => { setShowNewJob(false); loadJobs(); }} />
       ) : (
-        <button onClick={() => setShowNewJob(true)} style={{ marginBottom: "1.5rem" }}>
+        <button onClick={handleNewJobClick} style={{ marginBottom: "1.5rem" }}>
           + Post new opening
         </button>
+      )}
+
+      {plan && plan.plan === "free" && (
+        <div className="upgrade-banner">
+          <span>🔒 You're on the free plan — upgrade to post jobs</span>
+          <button onClick={() => onUpgrade && onUpgrade()}>View plans</button>
+        </div>
       )}
 
       <h3>Your openings</h3>
