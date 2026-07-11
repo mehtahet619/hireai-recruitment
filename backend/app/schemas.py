@@ -43,6 +43,11 @@ class ApplicationSubmitRequest(BaseModel):
     resume: str = Field(..., min_length=10)
 
 
+class GoogleAuthRequest(BaseModel):
+    credential: str = Field(..., min_length=1)  # Google ID token
+    company_name: str | None = None  # optional, used on first sign-in
+
+
 class JDParseRequest(BaseModel):
     job_description: str = Field(..., min_length=1)
 

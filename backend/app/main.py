@@ -22,6 +22,7 @@ from .schemas import (
     JobCreateRequest,
     JobUpdateRequest,
     ApplicationSubmitRequest,
+    GoogleAuthRequest,
 )
 from .pipeline import (
     parse_jd,
@@ -45,6 +46,7 @@ from .employer_store import (
     create_employer,
     authenticate_employer,
     get_employer,
+    get_employer_by_email,
     create_job,
     get_job,
     update_job,
@@ -343,6 +345,44 @@ if __name__ == "__main__":
 # ============================================================
 # B2B: Employer Auth
 # ============================================================
+
+@app.post("/api/employer/auth/google")
+async def api_employer_google_auth(req: GoogleAuthRequest):
+    """Verify Google ID token, create or fetch employer, return JWT."""
+    if not settings.google_client_id:
+        raise HTTPException(status_code=501, detail="Google auth not configured — set GOOGLE_CLIENT_ID")
+    try:
+        from google.oauth2 import id_token
+        from google.auth.transport import requests as grequests
+        idinfo = id_token.verify_oauth2_token(
+            req.credential,
+            grequests.Request(),
+            settings.google_client_id,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Invalid Google token: {e}")
+
+    email = idinfo.get("email", "").lower()
+    name = idinfo.get("name", "")
+    if not email:
+        raise HTTPException(status_code=400, detail="Google account has no email")
+
+    # Get existing or create new employer
+    emp = get_employer_by_email(email)
+    if not emp:
+        company = req.company_name or name or email.split("@")[0]
+        # Create with a random unusable password (Google-authed users won't use password login)
+        import secrets
+        emp = create_employer(email, secrets.token_hex(32), company)
+
+    token = create_token(emp.employer_id, emp.email, emp.company_name)
+    return {
+        "token": token,
+        "employer_id": emp.employer_id,
+        "email": emp.email,
+        "company_name": emp.company_name,
+    }
+
 
 @app.post("/api/employer/register")
 async def api_employer_register(req: EmployerRegisterRequest):

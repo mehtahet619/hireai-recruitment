@@ -38,6 +38,8 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
       - key: VALKEY_URL
         sync: false
       - key: S3_ENDPOINT
@@ -73,3 +75,5 @@ services:
           type: web
           name: ai-recruiter-api
           envVarKey: RENDER_EXTERNAL_URL
+      - key: VITE_GOOGLE_CLIENT_ID
+        sync: false
