@@ -1,0 +1,65 @@
+name: Commit Message Lint
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches-ignore: [main]
+
+jobs:
+  lint-commits:
+    name: Check commit messages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit messages
+        run: |
+          # Get all commits in this push / PR
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE=${{ github.event.pull_request.base.sha }}
+            HEAD=${{ github.event.pull_request.head.sha }}
+          else
+            BASE=${{ github.event.before }}
+            HEAD=${{ github.sha }}
+          fi
+
+          # Fall back to last commit if before is all-zeros (first push)
+          if [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            COMMITS=$(git log -1 --format="%H")
+          else
+            COMMITS=$(git log ${BASE}..${HEAD} --format="%H")
+          fi
+
+          FAILED=0
+          for COMMIT in $COMMITS; do
+            MSG=$(git log -1 --format="%s" $COMMIT)
+            echo "Checking: $MSG"
+
+            # Rule 1: must start with [FIX], [IMP], or [ADD]
+            if ! echo "$MSG" | grep -qE '^\[(FIX|IMP|ADD)\]'; then
+              echo "  ❌ Must start with [FIX], [IMP], or [ADD]"
+              FAILED=1
+            fi
+
+            # Rule 2: must have a module name after the tag — [TAG] module: title
+            if ! echo "$MSG" | grep -qE '^\[(FIX|IMP|ADD)\] \S+'; then
+              echo "  ❌ Must include a module name after the tag e.g. [ADD] employer_auth: ..."
+              FAILED=1
+            fi
+
+            # Rule 3: title must be 80 chars or fewer
+            LENGTH=${#MSG}
+            if [ $LENGTH -gt 80 ]; then
+              echo "  ❌ Title is ${LENGTH} chars — max is 80"
+              FAILED=1
+            fi
+
+            if [ $FAILED -eq 0 ]; then
+              echo "  ✅ OK"
+            fi
+          done
+
+          exit $FAILED
