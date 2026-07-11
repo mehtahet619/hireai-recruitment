@@ -42,14 +42,13 @@ def _redis():
     if not settings.redis_url:
         return None
     if _redis_client is None:
-        import redis
-
-        _redis_client = redis.from_url(settings.redis_url, decode_responses=True)
+        import valkey
+        _redis_client = valkey.from_url(settings.redis_url, decode_responses=True)
     return _redis_client
 
 
 def session_backend() -> str:
-    return "redis" if get_settings().redis_url else "memory"
+    return "valkey" if get_settings().redis_url else "memory"
 
 
 def _key(session_id: str) -> str:
