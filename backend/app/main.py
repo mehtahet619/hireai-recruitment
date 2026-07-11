@@ -77,7 +77,7 @@ async def health():
         "status": "ok",
         "mock": settings.use_mock,
         "model": settings.gemini_model,
-        "session_backend": "redis" if settings.redis_url else "memory",
+        "session_backend": "valkey" if settings.redis_url else "memory",
         "storage_backend": "s3" if settings.s3_bucket else "local",
     }
 

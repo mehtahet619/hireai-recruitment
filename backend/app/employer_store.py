@@ -22,8 +22,8 @@ def _redis():
     settings = get_settings()
     if not settings.redis_url:
         return None
-    import redis
-    return redis.from_url(settings.redis_url, decode_responses=True)
+    import valkey
+    return valkey.from_url(settings.redis_url, decode_responses=True)
 
 
 # ---------- helpers ----------

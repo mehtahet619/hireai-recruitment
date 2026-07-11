@@ -3,7 +3,7 @@
 # Then set these secret env vars in the Render dashboard:
 #   MISTRAL_API_KEY or GEMINI_API_KEY
 #   JWT_SECRET (any long random string)
-#   REDIS_URL (Upstash free tier)
+#   REDIS_URL (Valkey/Upstash — use a Valkey-compatible connection string)
 #   S3_* (Cloudflare R2 — optional, falls back to local storage)
 
 services:
