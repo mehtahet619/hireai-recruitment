@@ -40,6 +40,7 @@ class Settings:
             if o.strip()
         ]
         self.valkey_url: str = os.getenv("VALKEY_URL", "").strip()
+        self.google_client_id: str = os.getenv("GOOGLE_CLIENT_ID", "").strip()
         self.s3_endpoint: str = os.getenv("S3_ENDPOINT", "").strip()
         self.s3_bucket: str = os.getenv("S3_BUCKET", "").strip()
         self.s3_access_key_id: str = os.getenv("S3_ACCESS_KEY_ID", "").strip()

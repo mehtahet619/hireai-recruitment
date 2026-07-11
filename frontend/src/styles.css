@@ -441,3 +441,12 @@ header {
 .banned-icon { font-size: 48px; margin-bottom: 16px; }
 .banned-card h2 { margin: 0 0 12px; color: #d1242f; font-size: 22px; }
 .banned-card p { margin: 0 0 10px; }
+
+/* Google auth divider */
+.auth-divider {
+  display: flex; align-items: center; gap: 10px;
+  margin: 12px 0; color: #57606a; font-size: 13px;
+}
+.auth-divider::before, .auth-divider::after {
+  content: ""; flex: 1; height: 1px; background: #d0d7de;
+}
