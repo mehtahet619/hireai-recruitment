@@ -1,4 +1,4 @@
-"""Interview session persistence (Redis in production, memory for local dev)."""
+"""Interview session persistence (Valkey in production, memory for local dev)."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from .config import get_settings
 SESSION_TTL_SECONDS = 60 * 60 * 24
 BAN_KEY_PREFIX = "ban:"
 
-_redis_client = None
+_valkey_client = None
 _memory: dict[str, str] = {}
 _ban_memory: dict[str, dict] = {}
 
@@ -36,19 +36,19 @@ class InterviewSession:
     tab_changes_count: int = 0
 
 
-def _redis():
-    global _redis_client
+def _valkey():
+    global _valkey_client
     settings = get_settings()
-    if not settings.redis_url:
+    if not settings.valkey_url:
         return None
-    if _redis_client is None:
+    if _valkey_client is None:
         import valkey
-        _redis_client = valkey.from_url(settings.redis_url, decode_responses=True)
-    return _redis_client
+        _valkey_client = valkey.from_url(settings.valkey_url, decode_responses=True)
+    return _valkey_client
 
 
 def session_backend() -> str:
-    return "valkey" if get_settings().redis_url else "memory"
+    return "valkey" if get_settings().valkey_url else "memory"
 
 
 def _key(session_id: str) -> str:
@@ -61,7 +61,7 @@ def _ban_key(candidate_id: str) -> str:
 
 def _persist(session: InterviewSession) -> None:
     payload = json.dumps(asdict(session), ensure_ascii=False)
-    client = _redis()
+    client = _valkey()
     if client:
         client.setex(_key(session.session_id), SESSION_TTL_SECONDS, payload)
     else:
@@ -96,7 +96,7 @@ def create_session(
 
 
 def get_session(session_id: str) -> InterviewSession | None:
-    client = _redis()
+    client = _valkey()
     raw = client.get(_key(session_id)) if client else _memory.get(session_id)
     return _deserialize(raw) if raw else None
 
@@ -106,7 +106,7 @@ def save_session(session: InterviewSession) -> None:
 
 
 def delete_session(session_id: str) -> None:
-    client = _redis()
+    client = _valkey()
     if client:
         client.delete(_key(session_id))
     else:
@@ -114,7 +114,7 @@ def delete_session(session_id: str) -> None:
 
 
 def is_banned(candidate_id: str) -> dict:
-    client = _redis()
+    client = _valkey()
     key = _ban_key(candidate_id)
     if client:
         raw = client.get(key)
@@ -133,7 +133,7 @@ def ban_user(candidate_id: str, reason: str = "Too many tab changes") -> dict:
         "reason": reason,
         "banned_at": datetime.now().isoformat(),
     }
-    client = _redis()
+    client = _valkey()
     key = _ban_key(candidate_id)
     if client:
         client.set(key, json.dumps(ban_data))
@@ -143,7 +143,7 @@ def ban_user(candidate_id: str, reason: str = "Too many tab changes") -> dict:
 
 
 def unban_user(candidate_id: str) -> dict:
-    client = _redis()
+    client = _valkey()
     key = _ban_key(candidate_id)
     if client:
         client.delete(key)

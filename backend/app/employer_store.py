@@ -1,4 +1,4 @@
-"""Employer and Job persistence (Redis or memory)."""
+"""Employer and Job persistence (Valkey or memory)."""
 from __future__ import annotations
 
 import json
@@ -18,12 +18,12 @@ _memory_applications: dict[str, str] = {}
 EMPLOYER_TTL = 60 * 60 * 24 * 365  # 1 year
 
 
-def _redis():
+def _valkey():
     settings = get_settings()
-    if not settings.redis_url:
+    if not settings.valkey_url:
         return None
     import valkey
-    return valkey.from_url(settings.redis_url, decode_responses=True)
+    return valkey.from_url(settings.valkey_url, decode_responses=True)
 
 
 # ---------- helpers ----------
@@ -56,7 +56,7 @@ def _emp_email_key(email: str) -> str:
 
 
 def create_employer(email: str, password: str, company_name: str) -> Employer:
-    client = _redis()
+    client = _valkey()
     email_key = _emp_email_key(email)
     # check duplicate
     if client:
@@ -83,7 +83,7 @@ def create_employer(email: str, password: str, company_name: str) -> Employer:
 
 
 def get_employer_by_email(email: str) -> Employer | None:
-    client = _redis()
+    client = _valkey()
     email_key = _emp_email_key(email)
     if client:
         eid = client.get(email_key)
@@ -101,7 +101,7 @@ def get_employer_by_email(email: str) -> Employer | None:
 
 
 def get_employer(employer_id: str) -> Employer | None:
-    client = _redis()
+    client = _valkey()
     raw = client.get(_emp_key(employer_id)) if client else _memory_employers.get(_emp_key(employer_id))
     if not raw:
         return None
@@ -151,7 +151,7 @@ def create_job(employer_id: str, title: str, description: str,
     )
     _save_job(job)
     # add to employer's job list
-    client = _redis()
+    client = _valkey()
     emp_jobs_key = _employer_jobs_key(employer_id)
     if client:
         client.sadd(emp_jobs_key, job.job_id)
@@ -164,7 +164,7 @@ def create_job(employer_id: str, title: str, description: str,
 
 def _save_job(job: Job) -> None:
     payload = json.dumps(asdict(job))
-    client = _redis()
+    client = _valkey()
     if client:
         client.set(_job_key(job.job_id), payload)
     else:
@@ -172,7 +172,7 @@ def _save_job(job: Job) -> None:
 
 
 def get_job(job_id: str) -> Job | None:
-    client = _redis()
+    client = _valkey()
     raw = client.get(_job_key(job_id)) if client else _memory_jobs.get(_job_key(job_id))
     if not raw:
         return None
@@ -184,7 +184,7 @@ def update_job(job: Job) -> None:
 
 
 def list_jobs(active_only: bool = True) -> list[Job]:
-    client = _redis()
+    client = _valkey()
     jobs = []
     if client:
         keys = client.keys("job:*")
@@ -213,7 +213,7 @@ def list_jobs(active_only: bool = True) -> list[Job]:
 
 
 def list_employer_jobs(employer_id: str) -> list[Job]:
-    client = _redis()
+    client = _valkey()
     emp_jobs_key = _employer_jobs_key(employer_id)
     if client:
         job_ids = list(client.smembers(emp_jobs_key))
@@ -266,7 +266,7 @@ def create_application(job_id: str, employer_id: str, candidate_name: str,
     )
     _save_application(app)
     # link to job
-    client = _redis()
+    client = _valkey()
     job_apps_key = _job_apps_key(job_id)
     if client:
         client.sadd(job_apps_key, app.application_id)
@@ -284,7 +284,7 @@ def create_application(job_id: str, employer_id: str, candidate_name: str,
 
 def _save_application(app: Application) -> None:
     payload = json.dumps(asdict(app))
-    client = _redis()
+    client = _valkey()
     if client:
         client.set(_app_key(app.application_id), payload)
     else:
@@ -292,7 +292,7 @@ def _save_application(app: Application) -> None:
 
 
 def get_application(application_id: str) -> Application | None:
-    client = _redis()
+    client = _valkey()
     raw = (client.get(_app_key(application_id)) if client
            else _memory_applications.get(_app_key(application_id)))
     if not raw:
@@ -306,7 +306,7 @@ def update_application(app: Application) -> None:
 
 
 def list_job_applications(job_id: str) -> list[Application]:
-    client = _redis()
+    client = _valkey()
     job_apps_key = _job_apps_key(job_id)
     if client:
         app_ids = list(client.smembers(job_apps_key))
