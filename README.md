@@ -53,13 +53,13 @@ Open http://localhost:5173, paste a JD and resume, click **Run pipeline**.
 
 ## Deploy (production)
 
-Uses **Render** (backend + frontend) with **Upstash Redis** (sessions) and **Cloudflare R2** (video + reviews).
+Uses **Render** (backend + frontend) with **Valkey** (sessions) and **Cloudflare R2** (video + reviews).
 
 ### 1. Create free persistence services
 
 | Service | Sign up | What to copy |
 |---------|---------|--------------|
-| [Upstash Redis](https://upstash.com) | Free database | `REDIS_URL` |
+| [Render Valkey](https://render.com/docs/valkey) or any Valkey host | Free instance | `VALKEY_URL` |
 | [Cloudflare R2](https://dash.cloudflare.com) | Create bucket + API token | `S3_ENDPOINT`, `S3_BUCKET`, keys |
 
 R2 endpoint format: `https://<account_id>.r2.cloudflarestorage.com`
@@ -69,8 +69,9 @@ R2 endpoint format: `https://<account_id>.r2.cloudflarestorage.com`
 1. Go to [Render Dashboard](https://dashboard.render.com) → **New** → **Blueprint**
 2. Connect repo: `https://github.com/mehtahet619/ai-recruiter`
 3. Set secret env vars when prompted:
-   - `GEMINI_API_KEY`
-   - `REDIS_URL`
+   - `GEMINI_API_KEY` or `MISTRAL_API_KEY`
+   - `JWT_SECRET`
+   - `VALKEY_URL`
    - `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`
    - `S3_PUBLIC_BASE` (optional, R2 public bucket URL)
 4. Click **Apply** — Render deploys API + static frontend automatically
@@ -79,7 +80,7 @@ R2 endpoint format: `https://<account_id>.r2.cloudflarestorage.com`
 
 Verify: `GET https://<your-api>.onrender.com/api/health` should show:
 ```json
-{"session_backend":"redis","storage_backend":"s3",...}
+{"session_backend":"valkey","storage_backend":"s3",...}
 ```
 
 ---

@@ -39,7 +39,7 @@ class Settings:
             for o in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
             if o.strip()
         ]
-        self.redis_url: str = os.getenv("REDIS_URL", "").strip()
+        self.valkey_url: str = os.getenv("VALKEY_URL", "").strip()
         self.s3_endpoint: str = os.getenv("S3_ENDPOINT", "").strip()
         self.s3_bucket: str = os.getenv("S3_BUCKET", "").strip()
         self.s3_access_key_id: str = os.getenv("S3_ACCESS_KEY_ID", "").strip()
