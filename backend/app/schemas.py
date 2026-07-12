@@ -144,3 +144,52 @@ class VerifyPaymentRequest(BaseModel):
     razorpay_payment_id: str
     razorpay_signature: str
     plan: str
+
+
+# ---------- Signal Management ----------
+
+class SignalIngestRequest(BaseModel):
+    engineer_id: str = Field(..., min_length=1)
+    signal_type: str = Field(..., min_length=1)
+    payload: dict[str, Any]
+    source_system: str = Field(..., min_length=1)
+    employer_id: str = Field(..., min_length=1)
+    consent_version: str = "1.0"
+
+
+class SignalResponse(BaseModel):
+    signal_id: str
+    pseudonymous_id: str
+    signal_type: str
+    payload: dict[str, Any]
+    source_system: str
+    collected_at: str
+    consent_version: str
+    employer_id: str
+    revoked: bool = False
+
+
+# ---------- Onboarding ----------
+
+class OnboardingTaskSchema(BaseModel):
+    title: str
+    description: str
+    due_offset_days: int
+    assigned_role: str
+
+
+class OnboardingTemplateCreateRequest(BaseModel):
+    name: str
+    tasks: list[OnboardingTaskSchema]
+
+
+class OnboardingTemplateUpdateRequest(BaseModel):
+    name: str | None = None
+    tasks: list[OnboardingTaskSchema] | None = None
+
+
+class OnboardingPlanCreateRequest(BaseModel):
+    engineer_id: str
+    employer_id: str
+    template_id: str
+    hire_date: str  # YYYY-MM-DD

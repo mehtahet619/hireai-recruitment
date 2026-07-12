@@ -25,6 +25,12 @@ from .schemas import (
     GoogleAuthRequest,
     CreateOrderRequest,
     VerifyPaymentRequest,
+    SignalIngestRequest,
+    SignalResponse,
+    OnboardingTaskSchema,
+    OnboardingTemplateCreateRequest,
+    OnboardingTemplateUpdateRequest,
+    OnboardingPlanCreateRequest,
 )
 from .pipeline import (
     parse_jd,
@@ -63,7 +69,28 @@ from .employer_store import (
     PLANS,
 )
 from .auth import create_token, get_current_employer
+from .signal_store import (
+    Signal_Processor,
+    query_signals,
+    compute_pseudonymous_id,
+    SignalType,
+    ConsentError,
+)
+from .onboarding_store import (
+    save_template,
+    get_template,
+    list_employer_templates,
+    create_plan_from_template,
+    complete_task,
+    get_plan,
+    list_employer_plans,
+    OnboardingTemplate,
+    OnboardingTask,
+)
+from .evaluation_models import hiring_ability_predictor
 import json
+import uuid
+from datetime import datetime, timedelta, timezone
 
 settings = get_settings()
 
@@ -663,6 +690,50 @@ async def api_apply_complete(req: InterviewCompleteRequest):
         })
         application.review_id = review_result.get("review_id")
         update_application(application)
+        
+        # Emit interview_transcript_embedding Signal if applicant has consent
+        # Requirement 3.4: after interview completion, emit signal with session metadata (no PII)
+        try:
+            processor = Signal_Processor()
+            processor.normalize_signal(
+                engineer_id=application.candidate_email,  # Use email as engineer identifier
+                signal_type=SignalType.INTERVIEW_TRANSCRIPT_EMBEDDING,
+                raw_payload={
+                    "source": "platform_interview",
+                    "session_id": session.session_id,
+                },
+                source_system="platform_interview",
+                employer_id=application.employer_id,
+                consent_version="1.0",
+            )
+        except ConsentError:
+            # Silently skip signal ingestion if no consent - don't fail the apply/complete
+            pass
+        except Exception:
+            # Don't fail the endpoint if signal ingestion fails for any reason
+            pass
+
+        # Call hiring_ability_predictor and store in evaluation_model_score
+        # Requirements 3.1, 3.2: supplement LLM score with model prediction
+        try:
+            since_dt = datetime.now(timezone.utc) - timedelta(days=30)
+            until_dt = datetime.now(timezone.utc)
+            pseudonymous_id = compute_pseudonymous_id(application.candidate_email)
+            engineer_signals = query_signals(pseudonymous_id, None, since_dt, until_dt)
+            pred = hiring_ability_predictor.predict(
+                engineer_id=application.candidate_email,
+                signals=engineer_signals,
+            )
+            application.evaluation_model_score = {
+                "score": pred.score,
+                "model_version": pred.model_version,
+                "confidence_interval": list(pred.confidence_interval),
+                "model_type": pred.model_type.value,
+            }
+            update_application(application)
+        except Exception:
+            # Don't fail the endpoint if prediction fails
+            pass
 
     return {
         "session_id": session.session_id,
@@ -727,6 +798,7 @@ async def api_get_applicant(application_id: str,
         "feedback": app.feedback,
         "transcript": session.transcript if session else [],
         "review_id": app.review_id,
+        "evaluation_model_score": app.evaluation_model_score,
         "created_at": app.created_at,
     }
 
@@ -829,4 +901,434 @@ async def api_get_plan(authorization: Annotated[str | None, Header()] = None):
         "plan": emp.plan,
         "plan_expires_at": emp.plan_expires_at,
         "can_post_jobs": emp.plan != "free",
+    }
+
+
+# ============================================================
+# Signal Management
+# ============================================================
+
+@app.post("/api/signals/ingest")
+async def api_signal_ingest(req: SignalIngestRequest):
+    """Ingest a behavioral signal for an engineer.
+    
+    Returns HTTP 403 if consent is missing.
+    Returns HTTP 400 if signal type is invalid.
+    """
+    try:
+        # Validate signal_type — ConsentError is a subclass of ValueError, catch it first
+        signal_type = SignalType(req.signal_type)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid signal_type: '{req.signal_type}'. Must be one of: {[t.value for t in SignalType]}"
+        )
+    
+    try:
+        processor = Signal_Processor()
+        signal = processor.normalize_signal(
+            engineer_id=req.engineer_id,
+            signal_type=signal_type,
+            raw_payload=req.payload,
+            source_system=req.source_system,
+            employer_id=req.employer_id,
+            consent_version=req.consent_version,
+        )
+        
+        return SignalResponse(
+            signal_id=signal.signal_id,
+            pseudonymous_id=signal.pseudonymous_id,
+            signal_type=signal.signal_type.value,
+            payload=signal.payload,
+            source_system=signal.source_system,
+            collected_at=signal.collected_at,
+            consent_version=signal.consent_version,
+            employer_id=signal.employer_id,
+            revoked=signal.revoked,
+        )
+    except ConsentError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/signals/me")
+async def api_signals_me(
+    engineer_id: str,
+    signal_type: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+):
+    """Engineer self-service: retrieve own signals.
+    
+    Query parameters:
+    - engineer_id (required): Engineer identifier
+    - signal_type (optional): Filter by specific signal type
+    - since (optional): ISO datetime string (defaults to 30 days ago)
+    - until (optional): ISO datetime string (defaults to now)
+    """
+    # Parse optional signal_type filter first (can raise 400)
+    signal_type_enum = None
+    if signal_type is not None:
+        try:
+            signal_type_enum = SignalType(signal_type)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid signal_type: '{signal_type}'. Must be one of: {[t.value for t in SignalType]}"
+            )
+    
+    try:
+        # Parse date range with defaults
+        if until is None:
+            until_dt = datetime.now(timezone.utc)
+        else:
+            until_dt = datetime.fromisoformat(until)
+            if until_dt.tzinfo is None:
+                until_dt = until_dt.replace(tzinfo=timezone.utc)
+        
+        if since is None:
+            since_dt = until_dt - timedelta(days=30)
+        else:
+            since_dt = datetime.fromisoformat(since)
+            if since_dt.tzinfo is None:
+                since_dt = since_dt.replace(tzinfo=timezone.utc)
+        
+        # Compute pseudonymous ID and query
+        pseudonymous_id = compute_pseudonymous_id(engineer_id)
+        signals = query_signals(pseudonymous_id, signal_type_enum, since_dt, until_dt)
+        
+        return [
+            SignalResponse(
+                signal_id=s.signal_id,
+                pseudonymous_id=s.pseudonymous_id,
+                signal_type=s.signal_type.value,
+                payload=s.payload,
+                source_system=s.source_system,
+                collected_at=s.collected_at,
+                consent_version=s.consent_version,
+                employer_id=s.employer_id,
+                revoked=s.revoked,
+            )
+            for s in signals
+        ]
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# Onboarding Module
+# ============================================================
+
+@app.post("/api/employer/onboarding/templates")
+async def api_create_onboarding_template(
+    req: OnboardingTemplateCreateRequest,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Employer: create an onboarding template."""
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        template = OnboardingTemplate(
+            template_id=str(uuid.uuid4()),
+            employer_id=claims["sub"],
+            name=req.name,
+            tasks=[
+                OnboardingTask(
+                    task_id=str(uuid.uuid4()),
+                    title=t.title,
+                    description=t.description,
+                    due_offset_days=t.due_offset_days,
+                    assigned_role=t.assigned_role,
+                )
+                for t in req.tasks
+            ],
+        )
+        save_template(template)
+        return {
+            "template_id": template.template_id,
+            "employer_id": template.employer_id,
+            "name": template.name,
+            "version": template.version,
+            "created_at": template.created_at,
+            "tasks": [
+                {
+                    "task_id": t.task_id,
+                    "title": t.title,
+                    "description": t.description,
+                    "due_offset_days": t.due_offset_days,
+                    "assigned_role": t.assigned_role,
+                }
+                for t in template.tasks
+            ],
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/employer/onboarding/templates/{template_id}")
+async def api_get_onboarding_template(
+    template_id: str,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Employer: retrieve an onboarding template by ID."""
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    template = get_template(template_id)
+    if not template or template.employer_id != claims["sub"]:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return {
+        "template_id": template.template_id,
+        "employer_id": template.employer_id,
+        "name": template.name,
+        "version": template.version,
+        "created_at": template.created_at,
+        "tasks": [
+            {
+                "task_id": t.task_id,
+                "title": t.title,
+                "description": t.description,
+                "due_offset_days": t.due_offset_days,
+                "assigned_role": t.assigned_role,
+            }
+            for t in template.tasks
+        ],
+    }
+
+
+@app.patch("/api/employer/onboarding/templates/{template_id}")
+async def api_update_onboarding_template(
+    template_id: str,
+    req: OnboardingTemplateUpdateRequest,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Employer: update an onboarding template (name and/or tasks)."""
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    template = get_template(template_id)
+    if not template or template.employer_id != claims["sub"]:
+        raise HTTPException(status_code=404, detail="Template not found")
+    try:
+        if req.name is not None:
+            template.name = req.name
+        if req.tasks is not None:
+            template.tasks = [
+                OnboardingTask(
+                    task_id=str(uuid.uuid4()),
+                    title=t.title,
+                    description=t.description,
+                    due_offset_days=t.due_offset_days,
+                    assigned_role=t.assigned_role,
+                )
+                for t in req.tasks
+            ]
+        template.version += 1
+        save_template(template)
+        return {
+            "template_id": template.template_id,
+            "employer_id": template.employer_id,
+            "name": template.name,
+            "version": template.version,
+            "created_at": template.created_at,
+            "tasks": [
+                {
+                    "task_id": t.task_id,
+                    "title": t.title,
+                    "description": t.description,
+                    "due_offset_days": t.due_offset_days,
+                    "assigned_role": t.assigned_role,
+                }
+                for t in template.tasks
+            ],
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/employer/onboarding/plans")
+async def api_list_employer_onboarding_plans(
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Employer: list all onboarding plans (one per engineer) for this employer."""
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        plans = list_employer_plans(claims["sub"])
+        return [
+            {
+                "plan_id": p.plan_id,
+                "engineer_id": p.engineer_id,
+                "employer_id": p.employer_id,
+                "template_id": p.template_id,
+                "hire_date": p.hire_date,
+                "tasks": [
+                    {
+                        "task_id": t.task_id,
+                        "title": t.title,
+                        "description": t.description,
+                        "due_offset_days": t.due_offset_days,
+                        "assigned_role": t.assigned_role,
+                        "completed_at": t.completed_at,
+                    }
+                    for t in p.tasks
+                ],
+                "created_at": p.created_at,
+            }
+            for p in plans
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/employer/onboarding/templates")
+async def api_list_employer_onboarding_templates(
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Employer: list all onboarding templates."""
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        templates = list_employer_templates(claims["sub"])
+        return [
+            {
+                "template_id": t.template_id,
+                "name": t.name,
+                "version": t.version,
+                "task_count": len(t.tasks),
+                "created_at": t.created_at,
+            }
+            for t in templates
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/onboarding/plans")
+async def api_create_onboarding_plan(req: OnboardingPlanCreateRequest):
+    """Create an onboarding plan for an engineer from a template."""
+    try:
+        plan = create_plan_from_template(
+            engineer_id=req.engineer_id,
+            employer_id=req.employer_id,
+            template_id=req.template_id,
+            hire_date=req.hire_date,
+        )
+        return {
+            "plan_id": plan.plan_id,
+            "engineer_id": plan.engineer_id,
+            "employer_id": plan.employer_id,
+            "template_id": plan.template_id,
+            "hire_date": plan.hire_date,
+            "created_at": plan.created_at,
+            "tasks": [
+                {
+                    "task_id": t.task_id,
+                    "title": t.title,
+                    "description": t.description,
+                    "due_offset_days": t.due_offset_days,
+                    "assigned_role": t.assigned_role,
+                    "completed_at": t.completed_at,
+                }
+                for t in plan.tasks
+            ],
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/onboarding/plans/{plan_id}")
+async def api_get_onboarding_plan(plan_id: str):
+    """Retrieve an onboarding plan by ID."""
+    plan = get_plan(plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    return {
+        "plan_id": plan.plan_id,
+        "engineer_id": plan.engineer_id,
+        "employer_id": plan.employer_id,
+        "template_id": plan.template_id,
+        "hire_date": plan.hire_date,
+        "created_at": plan.created_at,
+        "tasks": [
+            {
+                "task_id": t.task_id,
+                "title": t.title,
+                "description": t.description,
+                "due_offset_days": t.due_offset_days,
+                "assigned_role": t.assigned_role,
+                "completed_at": t.completed_at,
+            }
+            for t in plan.tasks
+        ],
+    }
+
+
+@app.post("/api/onboarding/plans/{plan_id}/tasks/{task_id}/complete")
+async def api_complete_onboarding_task(plan_id: str, task_id: str):
+    """Mark an onboarding task as complete and emit an onboarding_task_completion Signal."""
+    try:
+        updated_plan = complete_task(plan_id, task_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    # Find the completed task to get its title for the Signal payload
+    completed_task_title = next(
+        (t.title for t in updated_plan.tasks if t.task_id == task_id),
+        task_id,
+    )
+
+    # Emit onboarding_task_completion Signal (Requirement 4.3)
+    try:
+        processor = Signal_Processor()
+        processor.normalize_signal(
+            engineer_id=updated_plan.engineer_id,
+            signal_type=SignalType.ONBOARDING_TASK_COMPLETION,
+            raw_payload={
+                "plan_id": plan_id,
+                "task_id": task_id,
+                "task_title": completed_task_title,
+            },
+            source_system="platform_onboarding",
+            employer_id=updated_plan.employer_id,
+            consent_version="1.0",
+        )
+    except ConsentError:
+        # Silently skip if engineer has no consent — don't fail the completion
+        pass
+    except Exception:
+        # Don't fail the endpoint if signal emission fails for any reason
+        pass
+
+    return {
+        "plan_id": updated_plan.plan_id,
+        "task_id": task_id,
+        "completed": True,
+        "tasks": [
+            {
+                "task_id": t.task_id,
+                "title": t.title,
+                "description": t.description,
+                "due_offset_days": t.due_offset_days,
+                "assigned_role": t.assigned_role,
+                "completed_at": t.completed_at,
+            }
+            for t in updated_plan.tasks
+        ],
     }

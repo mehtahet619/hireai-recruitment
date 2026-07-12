@@ -66,3 +66,15 @@ export const checkBanStatus = (candidateId) => post("/api/ban/check", { candidat
 export const banUser = (candidateId, reason) => post("/api/ban/user", { candidate_id: candidateId, reason });
 export const updateTabChanges = (sessionId, warningsCount) =>
   post("/api/interview/update-tab-changes", { session_id: sessionId, warnings_count: warningsCount });
+
+// Onboarding
+export const getOnboardingPlans = (token) =>
+  get("/api/employer/onboarding/plans", token);
+export const getOnboardingPlan = (planId, token) =>
+  get(`/api/onboarding/plans/${planId}`, token);
+export const completeOnboardingTask = (planId, taskId, token) =>
+  post(`/api/onboarding/plans/${planId}/tasks/${taskId}/complete`, {}, token);
+export const createOnboardingTemplate = (data, token) =>
+  post("/api/employer/onboarding/templates", data, token);
+export const getOnboardingTemplates = (token) =>
+  get("/api/employer/onboarding/templates", token);

@@ -250,6 +250,7 @@ class Application:
     score: dict[str, Any] | None = None
     feedback: dict[str, Any] | None = None
     status: str = "applied"  # applied | interviewing | scored | reviewed
+    evaluation_model_score: dict | None = None  # ModelPrediction from hiring_ability_predictor
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
@@ -331,12 +332,16 @@ def list_job_applications(job_id: str) -> list[Application]:
 # ---------- Plan helpers ----------
 
 def employer_can_post_job(employer_id: str) -> tuple[bool, str]:
-    """Returns (allowed, reason). Free plan cannot post jobs."""
+    """Returns (allowed, reason). Free plan can post 1 job max."""
     emp = get_employer(employer_id)
     if not emp:
         return False, "Employer not found"
     if emp.plan == "free":
-        return False, "upgrade_required"
+        jobs = list_employer_jobs(employer_id)
+        active = [j for j in jobs if j.is_active]
+        if len(active) >= 1:
+            return False, "upgrade_required"
+        return True, ""
     if emp.plan == "enterprise":
         return True, ""
     # Check expiry
