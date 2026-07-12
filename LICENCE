@@ -1,0 +1,96 @@
+HireAI Source Available License
+Version 1.0
+
+Copyright (c) 2026 Het Mehta
+
+Permission is granted to any individual or legal entity obtaining a copy of this Software to use, reproduce, modify, and distribute the Software solely in accordance with the terms of this License.
+
+1. Definitions
+
+"Software" means the HireAI source code, object code, documentation, configuration files, examples, and any other materials distributed under this License.
+
+"Licensor" means Het Mehta, the copyright holder of the Software.
+
+"Commercial Use" means any use intended for commercial advantage or monetary compensation, including but not limited to selling, licensing, sublicensing, hosting, consulting, Software-as-a-Service (SaaS), managed services, paid support, or internal business operations generating revenue.
+
+"Derivative Work" means any work based upon or incorporating all or a substantial portion of the Software.
+
+2. License Grant
+
+Subject to the terms of this License, the Licensor grants You a limited, worldwide, non-exclusive, non-transferable, revocable license to:
+
+(a) access, download, and use the Software for personal, educational, academic, research, testing, and evaluation purposes;
+
+(b) modify the Software for Your own non-commercial use;
+
+(c) create Derivative Works solely for non-commercial purposes;
+
+(d) reproduce and redistribute the Software or Derivative Works for non-commercial purposes, provided this License and all copyright notices remain intact; and
+
+(e) submit modifications and contributions to the official HireAI repository.
+
+No ownership rights are transferred under this License.
+
+3. Restrictions
+
+Except with the prior written permission of the Licensor, You shall not:
+
+(a) use the Software for any Commercial Use;
+
+(b) sell, sublicense, lease, rent, assign, or otherwise commercially exploit the Software;
+
+(c) provide the Software as a hosted service, SaaS platform, API, cloud offering, or managed service;
+
+(d) use the Software or any substantial portion of it to develop, market, distribute, or operate a competing recruitment platform or any product or service substantially similar to HireAI;
+
+(e) remove, alter, or obscure any copyright, trademark, attribution, or license notices;
+
+(f) falsely represent authorship of the Software or any substantial portion thereof;
+
+(g) distribute the Software under another license without the express written consent of the Licensor.
+
+4. Intellectual Property
+
+The Software is licensed, not sold.
+
+All copyrights, trademarks, trade secrets, database rights, and other intellectual property rights in the Software remain the exclusive property of the Licensor.
+
+Nothing in this License grants any rights to use the HireAI name, trademarks, logos, branding, datasets, AI models, prompts, evaluation data, customer information, or other proprietary assets except as expressly provided.
+
+5. Contributions
+
+Unless otherwise agreed in writing, any Contribution intentionally submitted for inclusion in the Software shall be licensed to the Licensor under a perpetual, irrevocable, worldwide, non-exclusive, royalty-free license to use, reproduce, modify, publish, distribute, sublicense, and incorporate such Contribution into the Software.
+
+Contributors retain ownership of their original copyrighted material.
+
+6. Termination
+
+This License terminates automatically upon any breach of its terms.
+
+Upon termination, You must immediately cease all use, copying, modification, hosting, and distribution of the Software and destroy all copies in Your possession or control.
+
+Termination does not affect any rights or remedies available to the Licensor under applicable law.
+
+7. Disclaimer of Warranty
+
+THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, WHETHER EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, NON-INFRINGEMENT, OR ACCURACY.
+
+8. Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE LICENSOR SHALL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR FOR ANY LOSS OF PROFITS, DATA, BUSINESS, OR GOODWILL, ARISING OUT OF OR RELATING TO THE SOFTWARE OR THIS LICENSE, REGARDLESS OF THE THEORY OF LIABILITY.
+
+9. Governing Law
+
+This License shall be governed by and construed in accordance with the laws of the Republic of India, without regard to conflict of law principles.
+
+Any dispute arising out of or relating to this License shall be subject to the exclusive jurisdiction of the courts located in Gujarat, India.
+
+10. Entire Agreement
+
+This License constitutes the entire agreement between the Licensor and You concerning the Software and supersedes all prior or contemporaneous understandings relating to its subject matter.
+
+11. Reservation of Rights
+
+All rights not expressly granted under this License are reserved by the Licensor.
+
+By copying, modifying, using, or distributing the Software, You acknowledge that You have read, understood, and agree to be bound by the terms of this License.
