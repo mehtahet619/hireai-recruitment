@@ -97,7 +97,7 @@ Incremental expansion of HireAI into a full engineering lifecycle platform. Each
     - _Requirements: 6.5_
 
 - [ ] 8. Compliance Module
-  - [~] 8.1 Implement ComplianceRule and ComplianceAlert dataclasses with Valkey/memory storage in `backend/app/compliance_store.py`; implement evaluate_rules (evaluates trigger_condition DSL against work data), resolve_alert; pre-seed rule templates for US federal, UK, and India jurisdictions
+  - [-] 8.1 Implement ComplianceRule and ComplianceAlert dataclasses with Valkey/memory storage in `backend/app/compliance_store.py`; implement evaluate_rules (evaluates trigger_condition DSL against work data), resolve_alert; pre-seed rule templates for US federal, UK, and India jurisdictions
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6_
   - [~] 8.2 Write property test for compliance alert generated for every rule violation (Property 13)
     - **Property 13: Compliance alert generated for every rule violation**
