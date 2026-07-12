@@ -221,3 +221,20 @@ class PerformanceReviewCreateRequest(BaseModel):
     reviewer_id: str
     reviewee_id: str
     form_responses: dict
+
+
+class ComplianceRuleCreateRequest(BaseModel):
+    name: str
+    jurisdiction: str
+    category: str
+    trigger_condition: dict
+    severity: str = "warning"
+    notification_recipients: list[str] = []
+
+
+class ComplianceAlertResolveRequest(BaseModel):
+    resolver_id: str
+
+
+class ComplianceEvaluateRequest(BaseModel):
+    work_data_by_engineer: dict  # {pseudonymous_id: {field: value}}
