@@ -49,6 +49,12 @@ class Settings:
         self.s3_secret_access_key: str = os.getenv("S3_SECRET_ACCESS_KEY", "").strip()
         self.s3_region: str = os.getenv("S3_REGION", "auto").strip()
         self.s3_public_base: str = os.getenv("S3_PUBLIC_BASE", "").strip()
+        # Secret key used for HMAC pseudonymisation of engineer IDs in the
+        # Signal_Store. Falls back to a static dev-only default so that local
+        # dev works without .env configuration.
+        self.secret_key: str = os.getenv(
+            "SECRET_KEY", "dev-insecure-secret-change-in-production"
+        ).strip()
 
     @property
     def prompts_dir(self) -> Path:

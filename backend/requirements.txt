@@ -3,9 +3,13 @@ uvicorn[standard]==0.34.0
 pydantic==2.13.4
 google-generativeai==0.8.3
 google-auth==2.40.3
+google-auth-oauthlib==1.2.1
 python-dotenv==1.0.1
 valkey==6.0.2
 boto3==1.35.76
 python-multipart==0.0.20
 mistralai==2.6.0
 razorpay==1.4.2
+hypothesis==6.131.14
+pytest==8.3.5
+pytest-mock==3.14.0
