@@ -31,6 +31,7 @@ from .schemas import (
     OnboardingTemplateCreateRequest,
     OnboardingTemplateUpdateRequest,
     OnboardingPlanCreateRequest,
+    CompensationCreateRequest,
 )
 from .pipeline import (
     parse_jd,
@@ -86,6 +87,18 @@ from .onboarding_store import (
     list_employer_plans,
     OnboardingTemplate,
     OnboardingTask,
+)
+from .payroll_store import (
+    save_compensation,
+    get_compensation,
+    list_employer_compensations,
+    initiate_run,
+    complete_run,
+    get_payroll_run,
+    list_employer_payroll_runs,
+    get_payslips,
+    PayrollValidationError,
+    CompensationRecord,
 )
 from .evaluation_models import hiring_ability_predictor
 import json
@@ -1332,3 +1345,195 @@ async def api_complete_onboarding_task(plan_id: str, task_id: str):
             for t in updated_plan.tasks
         ],
     }
+
+
+# ============================================================
+# Payroll Module
+# ============================================================
+
+def _payslip_to_dict(ps) -> dict:
+    return {
+        "payslip_id": ps.payslip_id,
+        "engineer_id": ps.engineer_id,
+        "run_id": ps.run_id,
+        "gross_pay": ps.gross_pay,
+        "deductions_detail": ps.deductions_detail,
+        "net_pay": ps.net_pay,
+        "currency": ps.currency,
+        "period_start": ps.period_start,
+        "period_end": ps.period_end,
+    }
+
+
+def _run_to_dict(run) -> dict:
+    return {
+        "run_id": run.run_id,
+        "employer_id": run.employer_id,
+        "initiated_by": run.initiated_by,
+        "initiated_at": run.initiated_at,
+        "status": run.status,
+        "total_gross": run.total_gross,
+        "completed_at": run.completed_at,
+        "payslips": [_payslip_to_dict(ps) for ps in run.payslips],
+    }
+
+
+@app.post("/api/employer/compensation")
+async def api_create_compensation(
+    req: CompensationCreateRequest,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Employer: create or update a compensation record for an engineer."""
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        record = CompensationRecord(
+            record_id=str(uuid.uuid4()),
+            engineer_id=req.engineer_id,
+            employer_id=claims["sub"],
+            base_salary=req.base_salary,
+            currency=req.currency,
+            pay_frequency=req.pay_frequency,
+            effective_date=req.effective_date,
+            deductions=req.deductions,
+        )
+        save_compensation(record)
+        return {
+            "record_id": record.record_id,
+            "engineer_id": record.engineer_id,
+            "employer_id": record.employer_id,
+            "base_salary": record.base_salary,
+            "currency": record.currency,
+            "pay_frequency": record.pay_frequency,
+            "effective_date": record.effective_date,
+            "deductions": record.deductions,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/employer/compensation")
+async def api_list_compensation(
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Employer: list all compensation records for this employer."""
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        records = list_employer_compensations(claims["sub"])
+        return [
+            {
+                "record_id": r.record_id,
+                "engineer_id": r.engineer_id,
+                "employer_id": r.employer_id,
+                "base_salary": r.base_salary,
+                "currency": r.currency,
+                "pay_frequency": r.pay_frequency,
+                "effective_date": r.effective_date,
+                "deductions": r.deductions,
+            }
+            for r in records
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/employer/payroll/runs")
+async def api_list_payroll_runs(
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Employer: list all payroll runs for the authenticated employer."""
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        runs = list_employer_payroll_runs(claims["sub"])
+        return [
+            {
+                "run_id": r.run_id,
+                "status": r.status,
+                "total_gross": r.total_gross,
+                "initiated_at": r.initiated_at,
+                "completed_at": r.completed_at,
+                "payslip_count": len(r.payslips),
+            }
+            for r in runs
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/employer/payroll/runs")
+async def api_initiate_payroll_run(
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Employer: initiate and immediately complete a payroll run.
+
+    Validates all compensation records first. On any validation failure,
+    returns HTTP 400 with a descriptive error. On success, returns the
+    completed run including payslips.
+
+    The immutable audit log entry is written inside complete_run().
+    """
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        run = initiate_run(employer_id=claims["sub"], initiator_id=claims["sub"])
+        completed_run = complete_run(run.run_id)
+        return _run_to_dict(completed_run)
+    except PayrollValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/employer/payroll/runs/{run_id}")
+async def api_get_payroll_run(
+    run_id: str,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Employer: retrieve a specific payroll run by ID."""
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        run = get_payroll_run(run_id)
+        if not run or run.employer_id != claims["sub"]:
+            raise HTTPException(status_code=404, detail="Payroll run not found")
+        return _run_to_dict(run)
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/employer/payroll/runs/{run_id}/payslips")
+async def api_get_run_payslips(
+    run_id: str,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Employer: retrieve all payslips for a specific payroll run."""
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        run = get_payroll_run(run_id)
+        if not run or run.employer_id != claims["sub"]:
+            raise HTTPException(status_code=404, detail="Payroll run not found")
+        payslips = get_payslips(run_id)
+        return [_payslip_to_dict(ps) for ps in payslips]
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

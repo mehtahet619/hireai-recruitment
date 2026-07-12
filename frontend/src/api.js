@@ -78,3 +78,11 @@ export const createOnboardingTemplate = (data, token) =>
   post("/api/employer/onboarding/templates", data, token);
 export const getOnboardingTemplates = (token) =>
   get("/api/employer/onboarding/templates", token);
+
+// Payroll
+export const listCompensation = (token) => get("/api/employer/compensation", token);
+export const createCompensation = (data, token) => post("/api/employer/compensation", data, token);
+export const initiatePayrollRun = (token) => post("/api/employer/payroll/runs", {}, token);
+export const listPayrollRuns = (token) => get("/api/employer/payroll/runs", token);
+export const getPayrollRun = (runId, token) => get(`/api/employer/payroll/runs/${runId}`, token);
+export const getRunPayslips = (runId, token) => get(`/api/employer/payroll/runs/${runId}/payslips`, token);
