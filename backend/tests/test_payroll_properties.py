@@ -188,3 +188,153 @@ def test_payslip_net_equals_gross_minus_deductions(
         f"net_pay mismatch: got {payslip.net_pay}, expected {expected_net} "
         f"(gross_pay={payslip.gross_pay}, total_deductions={total_deductions})"
     )
+
+
+# ---------------------------------------------------------------------------
+# Property 9: Invalid compensation field rejects the Payroll_Run
+#
+# For any Payroll_Run initiated where at least one CompensationRecord has a
+# missing or invalid required field (null base_salary, unknown currency,
+# invalid pay_frequency), the initiate_run function SHALL return an error
+# before producing any Payslips and the run status SHALL be "failed".
+#
+# Feature: engineering-lifecycle-platform, Property 9: Invalid compensation field rejects the Payroll_Run
+# Validates: Requirements 5.5
+# ---------------------------------------------------------------------------
+
+import pytest
+from app.payroll_store import (
+    PayrollValidationError,
+    initiate_run,
+    list_employer_payroll_runs,
+    save_compensation,
+)
+
+VALID_CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "INR"]
+VALID_FREQUENCIES = {"monthly", "bi-weekly", "weekly"}
+
+
+@given(
+    base_salary=st.one_of(
+        st.floats(max_value=0.0, allow_nan=False, allow_infinity=False),
+        st.just(0.0),
+        st.floats(max_value=-0.01, allow_nan=False, allow_infinity=False),
+    ),
+    currency=st.sampled_from(VALID_CURRENCIES),
+    pay_frequency=pay_frequency_strategy,
+)
+@settings(max_examples=200)
+def test_invalid_base_salary_rejects_run(
+    base_salary: float,
+    currency: str,
+    pay_frequency: str,
+) -> None:
+    """Property 9 (base_salary): a run with base_salary <= 0 is rejected.
+
+    The run status SHALL be "failed" and no payslips SHALL be produced.
+
+    Validates: Requirements 5.5
+    """
+    _memory_store.clear()
+
+    employer_id = str(uuid.uuid4())
+    comp = CompensationRecord(
+        record_id=str(uuid.uuid4()),
+        engineer_id=str(uuid.uuid4()),
+        employer_id=employer_id,
+        base_salary=base_salary,
+        currency=currency,
+        pay_frequency=pay_frequency,
+        effective_date="2024-01-01",
+        deductions=[],
+    )
+    save_compensation(comp)
+
+    with pytest.raises(PayrollValidationError):
+        initiate_run(employer_id, "test-initiator")
+
+    runs = list_employer_payroll_runs(employer_id)
+    assert len(runs) == 1, f"Expected 1 run, got {len(runs)}"
+    assert runs[0].status == "failed", f"Expected status 'failed', got {runs[0].status!r}"
+    assert runs[0].payslips == [], f"Expected no payslips, got {runs[0].payslips}"
+
+
+@given(
+    base_salary=st.floats(min_value=0.01, max_value=10_000_000, allow_nan=False, allow_infinity=False),
+    pay_frequency=pay_frequency_strategy,
+)
+@settings(max_examples=200)
+def test_invalid_currency_rejects_run(
+    base_salary: float,
+    pay_frequency: str,
+) -> None:
+    """Property 9 (currency): a run with an empty string currency is rejected.
+
+    The run status SHALL be "failed" and no payslips SHALL be produced.
+
+    Validates: Requirements 5.5
+    """
+    _memory_store.clear()
+
+    employer_id = str(uuid.uuid4())
+    comp = CompensationRecord(
+        record_id=str(uuid.uuid4()),
+        engineer_id=str(uuid.uuid4()),
+        employer_id=employer_id,
+        base_salary=base_salary,
+        currency="",          # invalid: empty string
+        pay_frequency=pay_frequency,
+        effective_date="2024-01-01",
+        deductions=[],
+    )
+    save_compensation(comp)
+
+    with pytest.raises(PayrollValidationError):
+        initiate_run(employer_id, "test-initiator")
+
+    runs = list_employer_payroll_runs(employer_id)
+    assert len(runs) == 1, f"Expected 1 run, got {len(runs)}"
+    assert runs[0].status == "failed", f"Expected status 'failed', got {runs[0].status!r}"
+    assert runs[0].payslips == [], f"Expected no payslips, got {runs[0].payslips}"
+
+
+@given(
+    base_salary=st.floats(min_value=0.01, max_value=10_000_000, allow_nan=False, allow_infinity=False),
+    currency=st.sampled_from(VALID_CURRENCIES),
+    pay_frequency=st.text(min_size=1).filter(lambda f: f not in VALID_FREQUENCIES),
+)
+@settings(max_examples=200)
+def test_invalid_pay_frequency_rejects_run(
+    base_salary: float,
+    currency: str,
+    pay_frequency: str,
+) -> None:
+    """Property 9 (pay_frequency): a run with an unrecognised pay_frequency is rejected.
+
+    Any string not in {"monthly", "bi-weekly", "weekly"} SHALL cause the run
+    to fail with a PayrollValidationError and produce no payslips.
+
+    Validates: Requirements 5.5
+    """
+    _memory_store.clear()
+
+    employer_id = str(uuid.uuid4())
+    comp = CompensationRecord(
+        record_id=str(uuid.uuid4()),
+        engineer_id=str(uuid.uuid4()),
+        employer_id=employer_id,
+        base_salary=base_salary,
+        currency=currency,
+        pay_frequency=pay_frequency,   # invalid: not in VALID_FREQUENCIES
+        effective_date="2024-01-01",
+        deductions=[],
+    )
+    save_compensation(comp)
+
+    with pytest.raises(PayrollValidationError):
+        initiate_run(employer_id, "test-initiator")
+
+    runs = list_employer_payroll_runs(employer_id)
+    assert len(runs) == 1, f"Expected 1 run, got {len(runs)}"
+    assert runs[0].status == "failed", f"Expected status 'failed', got {runs[0].status!r}"
+    assert runs[0].payslips == [], f"Expected no payslips, got {runs[0].payslips}"

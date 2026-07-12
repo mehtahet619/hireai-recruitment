@@ -5,6 +5,7 @@ import { useVideoCheck } from "./useVideoCheck.js";
 import { useNetworkCheck } from "./useNetworkCheck.js";
 import { useScreenShare } from "./useScreenShare.js";
 import { useInterviewRecorder } from "./useInterviewRecorder.js";
+import { useGoogleAuth, GOOGLE_CLIENT_ID } from "./useGoogleAuth.js";
 
 const TAB_ABSENCE_LIMIT_MS = 5000; // 5 seconds away = 1 violation
 const MAX_VIOLATIONS = 3;          // ban on 3rd violation
@@ -60,6 +61,11 @@ export default function ApplyPage({ jobId, onBack }) {
   const { status: screenStatus, error: screenError, stream: screenStream,
     checkScreenShare, stopScreenShare } = useScreenShare();
   const { recording, startRecording, stopRecording } = useInterviewRecorder(video.stream);
+
+  // Google Sign-In pre-fills name + email
+  useGoogleAuth("candidate-google-btn", ({ name, email }) => {
+    setForm((f) => ({ ...f, name: name || f.name, email: email || f.email }));
+  });
 
   useEffect(() => {
     getJob(jobId).then(setJob).catch((e) => setError(e.message));
@@ -272,6 +278,12 @@ export default function ApplyPage({ jobId, onBack }) {
               will interview you immediately.
             </p>
             {error && <p className="error">{error}</p>}
+            {GOOGLE_CLIENT_ID && (
+              <>
+                <div id="candidate-google-btn" style={{ marginBottom: "12px" }} />
+                <div className="auth-divider"><span>or fill in manually</span></div>
+              </>
+            )}
             <form onSubmit={handleSubmit}>
               <label>Full name</label>
               <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}

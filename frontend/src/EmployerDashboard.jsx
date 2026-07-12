@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { listEmployerJobs, createJob, updateJob, getJobApplicants, getApplicant, getOnboardingPlans, completeOnboardingTask } from "./api.js";
+import { listEmployerJobs, createJob, updateJob, getJobApplicants, getApplicant, getOnboardingPlans, completeOnboardingTask, listCompensation, createCompensation, initiatePayrollRun, listPayrollRuns, getRunPayslips } from "./api.js";
 
 function bandColor(band) {
   return ({ strong_advance: "#1a7f37", advance: "#2da44e", borderline: "#bf8700",
@@ -394,6 +394,244 @@ function OnboardingTab({ token }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// PayrollTab
+// ---------------------------------------------------------------------------
+
+function PayrollTab({ token }) {
+  const [compensation, setCompensation] = useState([]);
+  const [runs, setRuns] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [runLoading, setRunLoading] = useState(false);
+  const [selectedRun, setSelectedRun] = useState(null);
+  const [payslips, setPayslips] = useState([]);
+  const [showCompForm, setShowCompForm] = useState(false);
+  const [compForm, setCompForm] = useState({
+    engineer_id: "", base_salary: "", currency: "USD",
+    pay_frequency: "monthly", effective_date: "", deductions: "[]",
+  });
+  const [savingComp, setSavingComp] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    setError("");
+    try {
+      const [comp, runsData] = await Promise.all([
+        listCompensation(token),
+        listPayrollRuns(token),
+      ]);
+      setCompensation(comp);
+      setRuns(runsData);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function handleInitiateRun() {
+    setRunLoading(true);
+    setError("");
+    try {
+      await initiatePayrollRun(token);
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setRunLoading(false);
+    }
+  }
+
+  async function handleSelectRun(runId) {
+    if (selectedRun === runId) { setSelectedRun(null); setPayslips([]); return; }
+    setSelectedRun(runId);
+    try {
+      const data = await getRunPayslips(runId, token);
+      setPayslips(data);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function handleSaveComp(e) {
+    e.preventDefault();
+    setSavingComp(true);
+    setError("");
+    try {
+      let deductions = [];
+      try { deductions = JSON.parse(compForm.deductions || "[]"); } catch (_) {}
+      await createCompensation({
+        engineer_id: compForm.engineer_id,
+        base_salary: parseFloat(compForm.base_salary),
+        currency: compForm.currency,
+        pay_frequency: compForm.pay_frequency,
+        effective_date: compForm.effective_date,
+        deductions,
+      }, token);
+      setShowCompForm(false);
+      setCompForm({ engineer_id: "", base_salary: "", currency: "USD", pay_frequency: "monthly", effective_date: "", deductions: "[]" });
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSavingComp(false);
+    }
+  }
+
+  if (loading) return <div className="muted">Loading payroll data…</div>;
+
+  return (
+    <div>
+      {error && <div className="error" style={{ marginBottom: "1rem" }}>{error}</div>}
+
+      {/* Compensation Records */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+        <h3 style={{ margin: 0 }}>Compensation Records</h3>
+        <button className="btn-secondary" onClick={() => setShowCompForm(!showCompForm)}>
+          {showCompForm ? "Cancel" : "+ Add Record"}
+        </button>
+      </div>
+
+      {showCompForm && (
+        <form className="card" onSubmit={handleSaveComp} style={{ marginBottom: "1rem" }}>
+          <div className="form-row">
+            <div>
+              <label>Engineer ID</label>
+              <input value={compForm.engineer_id} required
+                onChange={e => setCompForm({ ...compForm, engineer_id: e.target.value })} />
+            </div>
+            <div>
+              <label>Base Salary</label>
+              <input type="number" value={compForm.base_salary} required min="0.01"
+                onChange={e => setCompForm({ ...compForm, base_salary: e.target.value })} />
+            </div>
+          </div>
+          <div className="form-row">
+            <div>
+              <label>Currency</label>
+              <input value={compForm.currency} required
+                onChange={e => setCompForm({ ...compForm, currency: e.target.value })} />
+            </div>
+            <div>
+              <label>Pay Frequency</label>
+              <select value={compForm.pay_frequency} onChange={e => setCompForm({ ...compForm, pay_frequency: e.target.value })}>
+                <option value="monthly">Monthly</option>
+                <option value="bi-weekly">Bi-weekly</option>
+                <option value="weekly">Weekly</option>
+              </select>
+            </div>
+            <div>
+              <label>Effective Date</label>
+              <input type="date" value={compForm.effective_date} required
+                onChange={e => setCompForm({ ...compForm, effective_date: e.target.value })} />
+            </div>
+          </div>
+          <label>Deductions (JSON array)</label>
+          <textarea rows={2} value={compForm.deductions}
+            placeholder='[{"name":"Tax","type":"tax","pct":20}]'
+            onChange={e => setCompForm({ ...compForm, deductions: e.target.value })} />
+          <button type="submit" disabled={savingComp}>{savingComp ? "Saving…" : "Save"}</button>
+        </form>
+      )}
+
+      {compensation.length === 0 ? (
+        <div className="empty-state muted" style={{ marginBottom: "1.5rem" }}>No compensation records yet.</div>
+      ) : (
+        <div className="card" style={{ marginBottom: "1.5rem", padding: "0" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #eaeef2" }}>
+                <th style={{ padding: "8px 12px", textAlign: "left" }}>Engineer</th>
+                <th style={{ padding: "8px 12px", textAlign: "right" }}>Salary</th>
+                <th style={{ padding: "8px 12px" }}>Currency</th>
+                <th style={{ padding: "8px 12px" }}>Frequency</th>
+                <th style={{ padding: "8px 12px" }}>Effective</th>
+              </tr>
+            </thead>
+            <tbody>
+              {compensation.map((r) => (
+                <tr key={r.record_id} style={{ borderBottom: "1px solid #f0f3f6" }}>
+                  <td style={{ padding: "8px 12px" }}>{r.engineer_id}</td>
+                  <td style={{ padding: "8px 12px", textAlign: "right" }}>{r.base_salary?.toLocaleString()}</td>
+                  <td style={{ padding: "8px 12px" }}>{r.currency}</td>
+                  <td style={{ padding: "8px 12px" }}>{r.pay_frequency}</td>
+                  <td style={{ padding: "8px 12px" }} className="muted">{r.effective_date}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Payroll Runs */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+        <h3 style={{ margin: 0 }}>Payroll Runs</h3>
+        <button onClick={handleInitiateRun} disabled={runLoading}>
+          {runLoading ? "Running…" : "▶ Run Payroll"}
+        </button>
+      </div>
+
+      {runs.length === 0 ? (
+        <div className="empty-state muted">No payroll runs yet.</div>
+      ) : (
+        <div className="job-list">
+          {runs.map((run) => (
+            <div key={run.run_id}>
+              <div className="card" style={{ cursor: "pointer", marginBottom: "4px" }}
+                onClick={() => handleSelectRun(run.run_id)}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <span className={`tag ${run.status === "completed" ? "tag-green" : run.status === "failed" ? "" : ""}`}
+                      style={run.status === "failed" ? { background: "#ffebe9", color: "#d1242f" } : {}}>
+                      {run.status}
+                    </span>
+                    <span className="muted" style={{ marginLeft: "8px", fontSize: "13px" }}>
+                      {new Date(run.initiated_at).toLocaleString()}
+                    </span>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <strong>{run.total_gross?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
+                    <span className="muted" style={{ marginLeft: "8px" }}>{run.payslip_count} payslips</span>
+                  </div>
+                </div>
+              </div>
+              {selectedRun === run.run_id && payslips.length > 0 && (
+                <div className="card" style={{ marginBottom: "8px", background: "#f6f8fa" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr>
+                        <th style={{ padding: "6px 10px", textAlign: "left" }}>Engineer</th>
+                        <th style={{ padding: "6px 10px", textAlign: "right" }}>Gross</th>
+                        <th style={{ padding: "6px 10px", textAlign: "right" }}>Net</th>
+                        <th style={{ padding: "6px 10px" }}>Currency</th>
+                        <th style={{ padding: "6px 10px" }}>Period</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {payslips.map((ps) => (
+                        <tr key={ps.payslip_id} style={{ borderTop: "1px solid #eaeef2" }}>
+                          <td style={{ padding: "6px 10px" }}>{ps.engineer_id}</td>
+                          <td style={{ padding: "6px 10px", textAlign: "right" }}>{ps.gross_pay?.toFixed(2)}</td>
+                          <td style={{ padding: "6px 10px", textAlign: "right" }}>{ps.net_pay?.toFixed(2)}</td>
+                          <td style={{ padding: "6px 10px" }}>{ps.currency}</td>
+                          <td style={{ padding: "6px 10px" }} className="muted">{ps.period_start} → {ps.period_end}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function JobsTab({ token, onUpgrade }) {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -488,7 +726,7 @@ function JobsTab({ token, onUpgrade }) {
   );
 }
 
-const TABS = ["Jobs", "Onboarding"];
+const TABS = ["Jobs", "Onboarding", "Payroll"];
 
 export default function EmployerDashboard({ user, token, onLogout, onUpgrade }) {
   const [activeTab, setActiveTab] = useState("Jobs");
@@ -517,6 +755,7 @@ export default function EmployerDashboard({ user, token, onLogout, onUpgrade }) 
 
       {activeTab === "Jobs" && <JobsTab token={token} onUpgrade={onUpgrade} />}
       {activeTab === "Onboarding" && <OnboardingTab token={token} />}
+      {activeTab === "Payroll" && <PayrollTab token={token} />}
     </div>
   );
 }
