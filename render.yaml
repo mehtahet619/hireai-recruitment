@@ -78,6 +78,10 @@ services:
         fromService:
           type: web
           name: ai-recruiter-api
+      # Google OAuth client ID — must match the backend GOOGLE_CLIENT_ID
+      # Set this in the Render dashboard as a secret env var
+      - key: VITE_GOOGLE_CLIENT_ID
+        sync: false
           envVarKey: RENDER_EXTERNAL_URL
       - key: VITE_GOOGLE_CLIENT_ID
         sync: false
