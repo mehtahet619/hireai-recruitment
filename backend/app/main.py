@@ -32,6 +32,8 @@ from .schemas import (
     OnboardingTemplateUpdateRequest,
     OnboardingPlanCreateRequest,
     CompensationCreateRequest,
+    PerformanceCycleCreateRequest,
+    PerformanceReviewCreateRequest,
 )
 from .pipeline import (
     parse_jd,
@@ -100,6 +102,16 @@ from .payroll_store import (
     PayrollValidationError,
     CompensationRecord,
 )
+from .performance_store import (
+    save_cycle,
+    get_cycle,
+    list_employer_cycles,
+    activate_cycle,
+    submit_review,
+    evaluate_cycle,
+    list_cycle_reviews,
+    PerformanceCycle,
+)
 from .evaluation_models import hiring_ability_predictor
 import json
 import uuid
@@ -108,6 +120,10 @@ from datetime import datetime, timedelta, timezone
 settings = get_settings()
 
 app = FastAPI(title="AI Recruiter API", version="1.0.0")
+
+# In-memory promotion alert store: key = "promotion_alert:{cycle_id}:{engineer_id}"
+# value = JSON string with engineer_id, score, cycle_id
+_promotion_alerts: dict[str, str] = {}
 
 app.add_middleware(
     CORSMiddleware,
@@ -1531,6 +1547,285 @@ async def api_get_run_payslips(
             raise HTTPException(status_code=404, detail="Payroll run not found")
         payslips = get_payslips(run_id)
         return [_payslip_to_dict(ps) for ps in payslips]
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# Performance Management Module (Requirements 6.2–6.6)
+# ============================================================
+
+@app.post("/api/employer/performance/cycles")
+async def api_create_performance_cycle(
+    req: PerformanceCycleCreateRequest,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Employer: create a new performance review cycle.
+
+    The cycle is created in 'draft' status. Use the activate endpoint to start it.
+    The promotion_threshold is stored in the review_template so it travels with
+    the cycle record without requiring a schema change to PerformanceCycle.
+
+    Requirements: 6.1, 6.2
+    """
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        # Embed promotion_threshold into review_template for storage
+        template = dict(req.review_template)
+        template["_promotion_threshold"] = req.promotion_threshold
+
+        cycle = PerformanceCycle(
+            cycle_id=str(uuid.uuid4()),
+            employer_id=claims["sub"],
+            name=req.name,
+            start_date=req.start_date,
+            end_date=req.end_date,
+            participant_ids=req.participant_ids,
+            review_template=template,
+            status="draft",
+        )
+        save_cycle(cycle)
+        return {
+            "cycle_id": cycle.cycle_id,
+            "employer_id": cycle.employer_id,
+            "name": cycle.name,
+            "start_date": cycle.start_date,
+            "end_date": cycle.end_date,
+            "participant_ids": cycle.participant_ids,
+            "review_template": cycle.review_template,
+            "status": cycle.status,
+            "predictions": cycle.predictions,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/employer/performance/cycles")
+async def api_list_performance_cycles(
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Employer: list all performance cycles for this employer.
+
+    Requirements: 6.1
+    """
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        cycles = list_employer_cycles(claims["sub"])
+        return [
+            {
+                "cycle_id": c.cycle_id,
+                "employer_id": c.employer_id,
+                "name": c.name,
+                "start_date": c.start_date,
+                "end_date": c.end_date,
+                "participant_ids": c.participant_ids,
+                "review_template": c.review_template,
+                "status": c.status,
+                "predictions": c.predictions,
+            }
+            for c in cycles
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/employer/performance/cycles/{cycle_id}/activate")
+async def api_activate_performance_cycle(
+    cycle_id: str,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Employer: activate a performance cycle, moving it from draft → active.
+
+    Requirements: 6.2
+    """
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        cycle = get_cycle(cycle_id)
+        if not cycle or cycle.employer_id != claims["sub"]:
+            raise HTTPException(status_code=404, detail="Performance cycle not found")
+        updated = activate_cycle(cycle_id)
+        return {
+            "cycle_id": updated.cycle_id,
+            "employer_id": updated.employer_id,
+            "name": updated.name,
+            "start_date": updated.start_date,
+            "end_date": updated.end_date,
+            "participant_ids": updated.participant_ids,
+            "review_template": updated.review_template,
+            "status": updated.status,
+            "predictions": updated.predictions,
+        }
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/employer/performance/cycles/{cycle_id}/reviews")
+async def api_submit_performance_review(
+    cycle_id: str,
+    req: PerformanceReviewCreateRequest,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Submit a performance review within a cycle.
+
+    After saving the review:
+    - Emits a JOB_PERFORMANCE_RATING Signal to the Signal_Store for the reviewee
+      (silently skipped if the reviewee has no consent).
+
+    Requirements: 6.3
+    """
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        cycle = get_cycle(cycle_id)
+        if not cycle or cycle.employer_id != claims["sub"]:
+            raise HTTPException(status_code=404, detail="Performance cycle not found")
+
+        review = submit_review(
+            cycle_id=cycle_id,
+            reviewer_id=req.reviewer_id,
+            reviewee_id=req.reviewee_id,
+            responses=req.form_responses,
+        )
+
+        # Emit JOB_PERFORMANCE_RATING Signal (Requirement 6.3)
+        try:
+            processor = Signal_Processor()
+            processor.normalize_signal(
+                engineer_id=req.reviewee_id,
+                signal_type=SignalType.JOB_PERFORMANCE_RATING,
+                raw_payload={
+                    "score": review.normalized_score,
+                    "cycle_id": cycle_id,
+                },
+                source_system="performance_review",
+                employer_id=cycle.employer_id,
+                consent_version="1.0",
+            )
+        except ConsentError:
+            # Silently skip if reviewee has no consent — don't fail the review submission
+            pass
+        except Exception:
+            # Don't fail the endpoint if signal emission fails for any reason
+            pass
+
+        return {
+            "review_id": review.review_id,
+            "cycle_id": review.cycle_id,
+            "reviewer_id": review.reviewer_id,
+            "reviewee_id": review.reviewee_id,
+            "form_responses": review.form_responses,
+            "normalized_score": review.normalized_score,
+            "submitted_at": review.submitted_at,
+        }
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/employer/performance/cycles/{cycle_id}/results")
+async def api_get_performance_cycle_results(
+    cycle_id: str,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Get reviews and promotion readiness predictions for a performance cycle.
+
+    - If the cycle is 'active', calls evaluate_cycle to run predictions and
+      marks the cycle as 'completed'.
+    - If the cycle is already 'completed', returns stored predictions directly.
+    - After evaluation, stores promotion alerts for any engineer whose
+      promotion_readiness score exceeds the employer-configured threshold.
+    - Includes any promotion alerts for this cycle in the response.
+
+    Requirements: 6.4, 6.5, 6.6
+    """
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        cycle = get_cycle(cycle_id)
+        if not cycle or cycle.employer_id != claims["sub"]:
+            raise HTTPException(status_code=404, detail="Performance cycle not found")
+
+        # Trigger evaluation for active cycles; completed cycles use stored predictions
+        if cycle.status == "active":
+            try:
+                evaluate_cycle(cycle_id)
+            except Exception:
+                # Re-fetch cycle even if prediction partially failed
+                pass
+            # Re-fetch the cycle to get the updated predictions + status
+            cycle = get_cycle(cycle_id)
+
+        # Determine promotion threshold (stored in review_template at cycle creation)
+        promotion_threshold: float = float(
+            cycle.review_template.get("_promotion_threshold", 0.75)
+        )
+
+        # Store promotion alerts for engineers above the threshold (Requirement 6.6)
+        for pred in cycle.predictions:
+            engineer_id = pred.get("engineer_id", "")
+            score = pred.get("score", 0.0)
+            if score > promotion_threshold:
+                alert_key = f"promotion_alert:{cycle_id}:{engineer_id}"
+                _promotion_alerts[alert_key] = json.dumps({
+                    "engineer_id": engineer_id,
+                    "score": score,
+                    "cycle_id": cycle_id,
+                    "threshold": promotion_threshold,
+                })
+
+        # Collect promotion alerts for this cycle
+        cycle_alert_prefix = f"promotion_alert:{cycle_id}:"
+        promotion_notifications = [
+            json.loads(v)
+            for k, v in _promotion_alerts.items()
+            if k.startswith(cycle_alert_prefix)
+        ]
+
+        # Retrieve all reviews for the cycle
+        reviews = list_cycle_reviews(cycle_id)
+
+        return {
+            "cycle_id": cycle.cycle_id,
+            "name": cycle.name,
+            "status": cycle.status,
+            "start_date": cycle.start_date,
+            "end_date": cycle.end_date,
+            "participant_ids": cycle.participant_ids,
+            "promotion_threshold": promotion_threshold,
+            "reviews": [
+                {
+                    "review_id": r.review_id,
+                    "reviewer_id": r.reviewer_id,
+                    "reviewee_id": r.reviewee_id,
+                    "normalized_score": r.normalized_score,
+                    "submitted_at": r.submitted_at,
+                }
+                for r in reviews
+            ],
+            "predictions": cycle.predictions,
+            "promotion_alerts": promotion_notifications,
+        }
     except HTTPException:
         raise
     except ValueError as e:

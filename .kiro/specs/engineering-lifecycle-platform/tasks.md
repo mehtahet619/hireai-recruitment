@@ -1,4 +1,5 @@
-# Implementation Plan: Engineering Lifecycle Platform
+
++-Implementation Plan: Engineering Lifecycle Platform
 
 ## Overview
 
@@ -71,23 +72,23 @@ Incremental expansion of HireAI into a full engineering lifecycle platform. Each
     - **Property 7: Payslip gross = sum of compensation components**
     - **Property 8: Payslip net = gross minus deductions**
     - **Validates: Requirements 5.2**
-  - [~] 5.3 Write property test for invalid compensation field rejecting the Payroll_Run (Property 9)
+  - [x] 5.3 Write property test for invalid compensation field rejecting the Payroll_Run (Property 9)
     - **Property 9: Invalid compensation field rejects the Payroll_Run**
     - **Validates: Requirements 5.5**
-  - [~] 5.4 Add FastAPI routes: POST/GET `/api/employer/compensation`, POST `/api/employer/payroll/runs`, GET `/api/employer/payroll/runs/{run_id}`, GET `/api/employer/payroll/runs/{run_id}/payslips`; append immutable audit log entry on each run
+  - [x] 5.4 Add FastAPI routes: POST/GET `/api/employer/compensation`, POST `/api/employer/payroll/runs`, GET `/api/employer/payroll/runs/{run_id}`, GET `/api/employer/payroll/runs/{run_id}/payslips`; append immutable audit log entry on each run
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.6_
-  - [~] 5.5 Add a Payroll tab to the React EmployerDashboard with compensation record management and payroll run initiation/results view
+  - [x] 5.5 Add a Payroll tab to the React EmployerDashboard with compensation record management and payroll run initiation/results view
     - _Requirements: 5.1, 5.3_
 
 - [ ] 6. Checkpoint — onboarding and payroll
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 7. Performance Management Module
-  - [~] 7.1 Implement PerformanceCycle, PerformanceReview dataclasses with Valkey/memory storage in `backend/app/performance_store.py`; implement activate_cycle, submit_review (normalizes score from form responses), evaluate_cycle (calls promotion_readiness_predictor for each participant)
+  - [x] 7.1 Implement PerformanceCycle, PerformanceReview dataclasses with Valkey/memory storage in `backend/app/performance_store.py`; implement activate_cycle, submit_review (normalizes score from form responses), evaluate_cycle (calls promotion_readiness_predictor for each participant)
     - _Requirements: 6.1, 6.2, 6.3, 6.4_
-  - [~] 7.2 Write property test: for any submitted PerformanceReview, a job_performance_rating Signal is written to the Signal_Store with the reviewee's pseudonymous_id
+  - [x] 7.2 Write property test: for any submitted PerformanceReview, a job_performance_rating Signal is written to the Signal_Store with the reviewee's pseudonymous_id
     - **Validates: Requirements 6.3**
-  - [~] 7.3 Add FastAPI routes: POST/GET `/api/employer/performance/cycles`, POST `/api/employer/performance/cycles/{id}/activate`, POST `/api/employer/performance/cycles/{id}/reviews`, GET `/api/employer/performance/cycles/{id}/results`
+  - [x] 7.3 Add FastAPI routes: POST/GET `/api/employer/performance/cycles`, POST `/api/employer/performance/cycles/{id}/activate`, POST `/api/employer/performance/cycles/{id}/reviews`, GET `/api/employer/performance/cycles/{id}/results`
     - Wire submit_review to emit job_performance_rating Signal
     - Wire evaluate_cycle to call promotion_readiness_predictor and store predictions on the cycle
     - Emit notification (stored alert record) when promotion_readiness score exceeds employer-configured threshold

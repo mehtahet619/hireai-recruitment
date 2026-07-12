@@ -193,3 +193,31 @@ class OnboardingPlanCreateRequest(BaseModel):
     employer_id: str
     template_id: str
     hire_date: str  # YYYY-MM-DD
+
+
+# ---------- Payroll ----------
+
+class CompensationCreateRequest(BaseModel):
+    engineer_id: str
+    base_salary: float
+    currency: str
+    pay_frequency: str  # monthly | bi-weekly | weekly
+    effective_date: str  # YYYY-MM-DD
+    deductions: list[dict] = []
+
+
+# ---------- Performance ----------
+
+class PerformanceCycleCreateRequest(BaseModel):
+    name: str
+    start_date: str  # YYYY-MM-DD
+    end_date: str    # YYYY-MM-DD
+    participant_ids: list[str] = []
+    review_template: dict = {}
+    promotion_threshold: float = 0.75  # score above which to send notification
+
+
+class PerformanceReviewCreateRequest(BaseModel):
+    reviewer_id: str
+    reviewee_id: str
+    form_responses: dict
