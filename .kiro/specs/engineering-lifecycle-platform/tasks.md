@@ -68,7 +68,7 @@ Incremental expansion of HireAI into a full engineering lifecycle platform. Each
 - [ ] 5. Payroll Module
   - [x] 5.1 Implement CompensationRecord, PayrollRun, and Payslip dataclasses with Valkey/memory storage in `backend/app/payroll_store.py`; implement initiate_run (validates all compensation records before producing any payslips), calculate_payslip (gross = pro-rated base, net = gross - deductions), complete_run
     - _Requirements: 5.1, 5.2, 5.3, 5.5, 5.6_
-  - [ ] 5.2 Write property test for payslip gross equals pro-rated salary (Property 7) and net equals gross minus deductions (Property 8)
+  - [x] 5.2 Write property test for payslip gross equals pro-rated salary (Property 7) and net equals gross minus deductions (Property 8)
     - **Property 7: Payslip gross = sum of compensation components**
     - **Property 8: Payslip net = gross minus deductions**
     - **Validates: Requirements 5.2**
@@ -93,7 +93,7 @@ Incremental expansion of HireAI into a full engineering lifecycle platform. Each
     - Wire evaluate_cycle to call promotion_readiness_predictor and store predictions on the cycle
     - Emit notification (stored alert record) when promotion_readiness score exceeds employer-configured threshold
     - _Requirements: 6.2, 6.3, 6.4, 6.5, 6.6_
-  - [~] 7.4 Add a Performance tab to the React EmployerDashboard showing cycle list, score distributions, and promotion readiness predictions
+  - [ ] 7.4 Add a Performance tab to the React EmployerDashboard showing cycle list, score distributions, and promotion readiness predictions
     - _Requirements: 6.5_
 
 - [ ] 8. Compliance Module

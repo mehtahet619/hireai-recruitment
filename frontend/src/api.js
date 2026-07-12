@@ -79,6 +79,13 @@ export const createOnboardingTemplate = (data, token) =>
 export const getOnboardingTemplates = (token) =>
   get("/api/employer/onboarding/templates", token);
 
+// Performance
+export const listPerformanceCycles = (token) => get("/api/employer/performance/cycles", token);
+export const createPerformanceCycle = (data, token) => post("/api/employer/performance/cycles", data, token);
+export const activatePerformanceCycle = (cycleId, token) => post(`/api/employer/performance/cycles/${cycleId}/activate`, {}, token);
+export const submitPerformanceReview = (cycleId, data, token) => post(`/api/employer/performance/cycles/${cycleId}/reviews`, data, token);
+export const getPerformanceCycleResults = (cycleId, token) => get(`/api/employer/performance/cycles/${cycleId}/results`, token);
+
 // Payroll
 export const listCompensation = (token) => get("/api/employer/compensation", token);
 export const createCompensation = (data, token) => post("/api/employer/compensation", data, token);
