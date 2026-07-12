@@ -23,8 +23,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install google-generativeai
-        run: pip install google-generativeai requests
+      - name: Install google-genai
+        run: pip install google-genai
 
       - name: Get PR diff
         id: diff
@@ -44,11 +44,10 @@ jobs:
         run: |
           python - <<'EOF'
           import os, json, textwrap
-          import google.generativeai as genai
           import urllib.request
+          from google import genai
 
-          api_key = os.environ["GEMINI_API_KEY"]
-          genai.configure(api_key=api_key)
+          client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
           with open("pr_diff.txt") as f:
               diff = f.read()
@@ -79,13 +78,15 @@ jobs:
           Be concise and constructive. Format as markdown.
           """).strip()
 
-          model = genai.GenerativeModel("gemini-1.5-flash")
-          response = model.generate_content(prompt)
+          response = client.models.generate_content(
+              model="gemini-2.0-flash",
+              contents=prompt,
+          )
           review_body = response.text
 
           # Post comment to PR via GitHub API
           comment = {
-              "body": f"## 🤖 Gemini AI Review\n\n{review_body}\n\n---\n*Automated review by Gemini 1.5 Flash*"
+              "body": f"## 🤖 Gemini AI Review\n\n{review_body}\n\n---\n*Automated review by Gemini 2.0 Flash*"
           }
           url = f"https://api.github.com/repos/{os.environ['REPO']}/issues/{os.environ['PR_NUMBER']}/comments"
           req = urllib.request.Request(
