@@ -1,4 +1,4 @@
-name: AI PR Review (OpenRouter)
+﻿name: AI PR Review (OpenRouter)
 
 on:
   pull_request:
@@ -37,7 +37,7 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
-          python - <<'EOF'
+          python - <<'PYEOF'
           import os, json, textwrap, urllib.request
 
           with open("pr_diff.txt") as f:
@@ -46,8 +46,7 @@ jobs:
           if len(diff) > 60000:
               diff = diff[:60000] + "\n\n... [diff truncated for review] ..."
 
-          prompt = textwrap.dedent(f"""
-          You are an expert code reviewer for the HireAI Engineering Lifecycle Platform.
+          prompt = f"""You are an expert code reviewer for the HireAI Engineering Lifecycle Platform.
           Review this pull request and provide structured feedback.
 
           PR Title: {os.environ['PR_TITLE']}
@@ -59,16 +58,14 @@ jobs:
           ```
 
           Provide a review covering:
-          1. **Summary** — what this PR does in 2-3 sentences
-          2. **Issues** — bugs, security concerns, or correctness problems (if any)
-          3. **Suggestions** — code quality, performance, or pattern improvements
-          4. **Tests** — are the changes adequately tested?
-          5. **Verdict** — one of: ✅ APPROVE, ⚠️ APPROVE WITH SUGGESTIONS, ❌ REQUEST CHANGES
+          1. **Summary** - what this PR does in 2-3 sentences
+          2. **Issues** - bugs, security concerns, or correctness problems (if any)
+          3. **Suggestions** - code quality, performance, or pattern improvements
+          4. **Tests** - are the changes adequately tested?
+          5. **Verdict** - one of: APPROVE, APPROVE WITH SUGGESTIONS, or REQUEST CHANGES
 
-          Be concise and constructive. Format as markdown.
-          """).strip()
+          Be concise and constructive. Format as markdown."""
 
-          # Call OpenRouter (OpenAI-compatible API)
           payload = json.dumps({
               "model": "google/gemini-2.0-flash-exp:free",
               "messages": [{"role": "user", "content": prompt}],
@@ -78,9 +75,9 @@ jobs:
               "https://openrouter.ai/api/v1/chat/completions",
               data=payload,
               headers={
-                  "Authorization": f"Bearer {os.environ['OPENROUTER_API_KEY']}",
+                  "Authorization": "Bearer " + os.environ["OPENROUTER_API_KEY"],
                   "Content-Type": "application/json",
-                  "HTTP-Referer": f"https://github.com/{os.environ['REPO']}",
+                  "HTTP-Referer": "https://github.com/" + os.environ["REPO"],
                   "X-Title": "HireAI PR Review",
               },
               method="POST",
@@ -90,20 +87,17 @@ jobs:
 
           review_body = result["choices"][0]["message"]["content"]
 
-          # Post comment to PR
-          comment = {
-              "body": f"## 🤖 AI Code Review\n\n{review_body}\n\n---\n*Automated review via OpenRouter — google/gemini-2.0-flash-exp*"
-          }
+          comment = {"body": "## AI Code Review\n\n" + review_body + "\n\n---\n*Automated review via OpenRouter - google/gemini-2.0-flash-exp*"}
           gh_req = urllib.request.Request(
-              f"https://api.github.com/repos/{os.environ['REPO']}/issues/{os.environ['PR_NUMBER']}/comments",
+              "https://api.github.com/repos/" + os.environ["REPO"] + "/issues/" + os.environ["PR_NUMBER"] + "/comments",
               data=json.dumps(comment).encode(),
               headers={
-                  "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+                  "Authorization": "Bearer " + os.environ["GH_TOKEN"],
                   "Accept": "application/vnd.github+json",
                   "Content-Type": "application/json",
               },
               method="POST",
           )
           with urllib.request.urlopen(gh_req) as res:
-              print(f"Comment posted: {res.status}")
-          EOF
+              print("Comment posted:", res.status)
+          PYEOF
