@@ -112,6 +112,18 @@ from .performance_store import (
     list_cycle_reviews,
     PerformanceCycle,
 )
+from .compliance_store import (
+    ComplianceRule,
+    ComplianceAlert,
+    save_rule,
+    get_rule,
+    list_employer_rules,
+    get_alert,
+    list_employer_alerts,
+    resolve_alert,
+    evaluate_rules,
+    seed_templates,
+)
 from .evaluation_models import hiring_ability_predictor
 import json
 import uuid
@@ -1826,6 +1838,130 @@ async def api_get_performance_cycle_results(
             "predictions": cycle.predictions,
             "promotion_alerts": promotion_notifications,
         }
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# Compliance Module
+# ============================================================
+
+from .schemas import (
+    ComplianceRuleCreateRequest,
+    ComplianceAlertResolveRequest,
+    ComplianceEvaluateRequest,
+)
+
+
+@app.post("/api/employer/compliance/rules")
+async def api_create_compliance_rule(
+    req: ComplianceRuleCreateRequest,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        rule = ComplianceRule(
+            rule_id=str(uuid.uuid4()),
+            employer_id=claims["sub"],
+            name=req.name,
+            jurisdiction=req.jurisdiction,
+            category=req.category,
+            trigger_condition=req.trigger_condition,
+            severity=req.severity,
+            notification_recipients=req.notification_recipients,
+        )
+        save_rule(rule)
+        from dataclasses import asdict
+        return asdict(rule)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/employer/compliance/rules")
+async def api_list_compliance_rules(
+    authorization: Annotated[str | None, Header()] = None,
+):
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        rules = list_employer_rules(claims["sub"])
+        from dataclasses import asdict
+        return [asdict(r) for r in rules]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/employer/compliance/rules/seed")
+async def api_seed_compliance_templates(
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Seed pre-built jurisdiction templates (US federal, UK, India)."""
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        rules = seed_templates(claims["sub"])
+        from dataclasses import asdict
+        return {"seeded": len(rules), "rules": [asdict(r) for r in rules]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/employer/compliance/evaluate")
+async def api_evaluate_compliance(
+    req: ComplianceEvaluateRequest,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Evaluate all rules against provided work data and create alerts."""
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        alerts = evaluate_rules(claims["sub"], req.work_data_by_engineer)
+        from dataclasses import asdict
+        return {"alerts_created": len(alerts), "alerts": [asdict(a) for a in alerts]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/employer/compliance/alerts")
+async def api_list_compliance_alerts(
+    authorization: Annotated[str | None, Header()] = None,
+):
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        alerts = list_employer_alerts(claims["sub"])
+        from dataclasses import asdict
+        return [asdict(a) for a in alerts]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.patch("/api/employer/compliance/alerts/{alert_id}/resolve")
+async def api_resolve_compliance_alert(
+    alert_id: str,
+    req: ComplianceAlertResolveRequest,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        alert = get_alert(alert_id)
+        if not alert or alert.employer_id != claims["sub"]:
+            raise HTTPException(status_code=404, detail="Alert not found")
+        updated = resolve_alert(alert_id, req.resolver_id)
+        from dataclasses import asdict
+        return asdict(updated)
     except HTTPException:
         raise
     except ValueError as e:

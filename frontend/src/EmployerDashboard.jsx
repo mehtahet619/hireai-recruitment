@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { listEmployerJobs, createJob, updateJob, getJobApplicants, getApplicant, getOnboardingPlans, completeOnboardingTask, listCompensation, createCompensation, initiatePayrollRun, listPayrollRuns, getRunPayslips, listPerformanceCycles, createPerformanceCycle, activatePerformanceCycle, getPerformanceCycleResults } from "./api.js";
+import { listEmployerJobs, createJob, updateJob, getJobApplicants, getApplicant, getOnboardingPlans, completeOnboardingTask, listCompensation, createCompensation, initiatePayrollRun, listPayrollRuns, getRunPayslips, listPerformanceCycles, createPerformanceCycle, activatePerformanceCycle, getPerformanceCycleResults, listComplianceRules, createComplianceRule, seedComplianceTemplates, listComplianceAlerts, resolveComplianceAlert } from "./api.js";
 
 function bandColor(band) {
   return ({ strong_advance: "#1a7f37", advance: "#2da44e", borderline: "#bf8700",
@@ -633,6 +633,247 @@ function PayrollTab({ token }) {
 }
 
 // ---------------------------------------------------------------------------
+// ComplianceTab
+// ---------------------------------------------------------------------------
+
+function ComplianceTab({ token }) {
+  const [alerts, setAlerts] = useState([]);
+  const [rules, setRules] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [resolving, setResolving] = useState(null);
+  const [seeding, setSeeding] = useState(false);
+  const [showRules, setShowRules] = useState(false);
+  const [showRuleForm, setShowRuleForm] = useState(false);
+  const [ruleForm, setRuleForm] = useState({
+    name: "", jurisdiction: "US_federal", category: "working_hours",
+    field: "weekly_hours", op: "gt", threshold: "48", severity: "warning",
+  });
+  const [savingRule, setSavingRule] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    setError("");
+    try {
+      const [alertsData, rulesData] = await Promise.all([
+        listComplianceAlerts(token),
+        listComplianceRules(token),
+      ]);
+      setAlerts(alertsData);
+      setRules(rulesData);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function handleResolve(alertId) {
+    setResolving(alertId);
+    setError("");
+    try {
+      await resolveComplianceAlert(alertId, "employer", token);
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setResolving(null);
+    }
+  }
+
+  async function handleSeedTemplates() {
+    setSeeding(true);
+    setError("");
+    try {
+      await seedComplianceTemplates(token);
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSeeding(false);
+    }
+  }
+
+  async function handleCreateRule(e) {
+    e.preventDefault();
+    setSavingRule(true);
+    setError("");
+    try {
+      await createComplianceRule({
+        name: ruleForm.name,
+        jurisdiction: ruleForm.jurisdiction,
+        category: ruleForm.category,
+        trigger_condition: { field: ruleForm.field, op: ruleForm.op, threshold: parseFloat(ruleForm.threshold) },
+        severity: ruleForm.severity,
+        notification_recipients: [],
+      }, token);
+      setShowRuleForm(false);
+      setRuleForm({ name: "", jurisdiction: "US_federal", category: "working_hours", field: "weekly_hours", op: "gt", threshold: "48", severity: "warning" });
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSavingRule(false);
+    }
+  }
+
+  function severityStyle(sev) {
+    return sev === "critical" ? { background: "#ffebe9", color: "#d1242f" }
+         : sev === "warning"  ? { background: "#fff8c5", color: "#9a6700" }
+         : { background: "#ddf4ff", color: "#0550ae" };
+  }
+
+  const openAlerts = alerts.filter(a => a.status === "open");
+  const resolvedAlerts = alerts.filter(a => a.status === "resolved");
+
+  if (loading) return <div className="muted">Loading compliance data…</div>;
+
+  return (
+    <div>
+      {error && <div className="error" style={{ marginBottom: "1rem" }}>{error}</div>}
+
+      {/* Open alerts — prominently surfaced */}
+      {openAlerts.length > 0 && (
+        <div style={{ background: "#ffebe9", border: "1px solid #ffcecb", borderRadius: "8px", padding: "12px 16px", marginBottom: "1.5rem" }}>
+          <strong style={{ color: "#d1242f" }}>⚠ {openAlerts.length} open compliance alert{openAlerts.length !== 1 ? "s" : ""} require attention</strong>
+        </div>
+      )}
+
+      {/* Alerts section */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+        <h3 style={{ margin: 0 }}>Compliance Alerts</h3>
+      </div>
+
+      {alerts.length === 0 ? (
+        <div className="empty-state muted" style={{ marginBottom: "1.5rem" }}>No compliance alerts. Configure rules and run an evaluation to detect violations.</div>
+      ) : (
+        <div style={{ marginBottom: "1.5rem" }}>
+          {openAlerts.map(alert => (
+            <div key={alert.alert_id} className="card" style={{ marginBottom: "8px", borderLeft: "4px solid #d1242f" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <span className="tag" style={severityStyle(alert.severity)}>{alert.severity}</span>
+                  <span className="muted" style={{ marginLeft: "8px", fontSize: "12px" }}>
+                    {new Date(alert.created_at).toLocaleString()}
+                  </span>
+                  <div style={{ marginTop: "6px", fontSize: "13px" }}>{alert.recommended_action}</div>
+                  <div className="muted" style={{ fontSize: "11px", marginTop: "4px" }}>Engineer: {alert.pseudonymous_engineer_id.slice(0, 8)}…</div>
+                </div>
+                <button className="btn-secondary" style={{ padding: "4px 10px", fontSize: "12px", flexShrink: 0 }}
+                  disabled={resolving === alert.alert_id}
+                  onClick={() => handleResolve(alert.alert_id)}>
+                  {resolving === alert.alert_id ? "…" : "Resolve"}
+                </button>
+              </div>
+            </div>
+          ))}
+          {resolvedAlerts.length > 0 && (
+            <div className="muted" style={{ fontSize: "12px", marginTop: "8px" }}>
+              + {resolvedAlerts.length} resolved alert{resolvedAlerts.length !== 1 ? "s" : ""}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Rules section */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+        <h3 style={{ margin: 0 }}>Compliance Rules</h3>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <button className="btn-secondary" style={{ fontSize: "12px", padding: "4px 10px" }}
+            disabled={seeding} onClick={handleSeedTemplates}>
+            {seeding ? "Seeding…" : "Seed Templates"}
+          </button>
+          <button className="btn-secondary" onClick={() => setShowRuleForm(!showRuleForm)}>
+            {showRuleForm ? "Cancel" : "+ Add Rule"}
+          </button>
+          <button className="btn-ghost" style={{ fontSize: "12px" }} onClick={() => setShowRules(!showRules)}>
+            {showRules ? "Hide rules" : `Show ${rules.length} rules`}
+          </button>
+        </div>
+      </div>
+
+      {showRuleForm && (
+        <form className="card" onSubmit={handleCreateRule} style={{ marginBottom: "1rem" }}>
+          <div className="form-row">
+            <div>
+              <label>Rule Name</label>
+              <input value={ruleForm.name} required onChange={e => setRuleForm({ ...ruleForm, name: e.target.value })} />
+            </div>
+            <div>
+              <label>Jurisdiction</label>
+              <select value={ruleForm.jurisdiction} onChange={e => setRuleForm({ ...ruleForm, jurisdiction: e.target.value })}>
+                <option value="US_federal">US Federal</option>
+                <option value="UK">UK</option>
+                <option value="India">India</option>
+              </select>
+            </div>
+          </div>
+          <div className="form-row">
+            <div>
+              <label>Category</label>
+              <select value={ruleForm.category} onChange={e => setRuleForm({ ...ruleForm, category: e.target.value })}>
+                <option value="working_hours">Working Hours</option>
+                <option value="leave">Leave</option>
+                <option value="data_privacy">Data Privacy</option>
+                <option value="pay_equity">Pay Equity</option>
+              </select>
+            </div>
+            <div>
+              <label>Severity</label>
+              <select value={ruleForm.severity} onChange={e => setRuleForm({ ...ruleForm, severity: e.target.value })}>
+                <option value="info">Info</option>
+                <option value="warning">Warning</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
+          </div>
+          <div className="form-row">
+            <div><label>Field</label><input value={ruleForm.field} onChange={e => setRuleForm({ ...ruleForm, field: e.target.value })} /></div>
+            <div>
+              <label>Operator</label>
+              <select value={ruleForm.op} onChange={e => setRuleForm({ ...ruleForm, op: e.target.value })}>
+                <option value="gt">&gt;</option><option value="gte">&gt;=</option>
+                <option value="lt">&lt;</option><option value="lte">&lt;=</option>
+                <option value="eq">=</option>
+              </select>
+            </div>
+            <div><label>Threshold</label><input type="number" value={ruleForm.threshold} onChange={e => setRuleForm({ ...ruleForm, threshold: e.target.value })} /></div>
+          </div>
+          <button type="submit" disabled={savingRule}>{savingRule ? "Saving…" : "Save Rule"}</button>
+        </form>
+      )}
+
+      {showRules && rules.length > 0 && (
+        <div className="card" style={{ padding: 0 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #eaeef2" }}>
+                <th style={{ padding: "8px 12px", textAlign: "left" }}>Rule</th>
+                <th style={{ padding: "8px 12px" }}>Jurisdiction</th>
+                <th style={{ padding: "8px 12px" }}>Category</th>
+                <th style={{ padding: "8px 12px" }}>Severity</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rules.map(r => (
+                <tr key={r.rule_id} style={{ borderBottom: "1px solid #f0f3f6" }}>
+                  <td style={{ padding: "8px 12px" }}>{r.name}</td>
+                  <td style={{ padding: "8px 12px" }} className="muted">{r.jurisdiction}</td>
+                  <td style={{ padding: "8px 12px" }} className="muted">{r.category}</td>
+                  <td style={{ padding: "8px 12px" }}><span className="tag" style={severityStyle(r.severity)}>{r.severity}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // PerformanceTab
 // ---------------------------------------------------------------------------
 
@@ -973,7 +1214,7 @@ function JobsTab({ token, onUpgrade }) {
   );
 }
 
-const TABS = ["Jobs", "Onboarding", "Payroll", "Performance"];
+const TABS = ["Jobs", "Onboarding", "Payroll", "Performance", "Compliance"];
 
 export default function EmployerDashboard({ user, token, onLogout, onUpgrade }) {
   const [activeTab, setActiveTab] = useState("Jobs");
@@ -1004,6 +1245,7 @@ export default function EmployerDashboard({ user, token, onLogout, onUpgrade }) 
       {activeTab === "Onboarding" && <OnboardingTab token={token} />}
       {activeTab === "Payroll" && <PayrollTab token={token} />}
       {activeTab === "Performance" && <PerformanceTab token={token} />}
+      {activeTab === "Compliance" && <ComplianceTab token={token} />}
     </div>
   );
 }

@@ -86,6 +86,14 @@ export const activatePerformanceCycle = (cycleId, token) => post(`/api/employer/
 export const submitPerformanceReview = (cycleId, data, token) => post(`/api/employer/performance/cycles/${cycleId}/reviews`, data, token);
 export const getPerformanceCycleResults = (cycleId, token) => get(`/api/employer/performance/cycles/${cycleId}/results`, token);
 
+// Compliance
+export const listComplianceRules = (token) => get("/api/employer/compliance/rules", token);
+export const createComplianceRule = (data, token) => post("/api/employer/compliance/rules", data, token);
+export const seedComplianceTemplates = (token) => post("/api/employer/compliance/rules/seed", {}, token);
+export const listComplianceAlerts = (token) => get("/api/employer/compliance/alerts", token);
+export const resolveComplianceAlert = (alertId, resolverId, token) => patch(`/api/employer/compliance/alerts/${alertId}/resolve`, { resolver_id: resolverId }, token);
+export const evaluateCompliance = (workData, token) => post("/api/employer/compliance/evaluate", { work_data_by_engineer: workData }, token);
+
 // Payroll
 export const listCompensation = (token) => get("/api/employer/compensation", token);
 export const createCompensation = (data, token) => post("/api/employer/compensation", data, token);
