@@ -82,8 +82,5 @@ services:
       # Set this in the Render dashboard as a secret env var
       - key: VITE_GOOGLE_CLIENT_ID
         sync: false
-          envVarKey: RENDER_EXTERNAL_URL
-      - key: VITE_GOOGLE_CLIENT_ID
-        sync: false
       - key: VITE_RAZORPAY_KEY_ID
         sync: false
