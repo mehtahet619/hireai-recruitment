@@ -2296,3 +2296,38 @@ async def api_engineer_get_consent(engineer_id: str):
                 "consent_record": asdict(record)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# Flywheel Metrics (Task 12.2)
+# ============================================================
+
+from .flywheel_metrics import get_flywheel_metrics, get_platform_health_summary
+
+
+@app.get("/api/admin/flywheel")
+async def api_admin_flywheel(
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Platform admin only — full flywheel metrics."""
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        return get_flywheel_metrics()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/employer/platform-health")
+async def api_employer_platform_health(
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Anonymized platform health summary visible to employers."""
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        return get_platform_health_summary()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

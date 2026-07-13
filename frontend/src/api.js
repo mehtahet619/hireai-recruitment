@@ -112,3 +112,7 @@ export const updateIntegration = (connectorId, data, token) => patch("/api/emplo
 export const getAnalyticsReport = (reportType, token) => get(`/api/employer/analytics/${reportType}`, token);
 export const getAnalyticsAnomalies = (token) => get("/api/employer/analytics/anomalies", token);
 export const getAnalyticsBenchmarks = (metric, token) => get(`/api/employer/analytics/benchmarks?metric=${metric}`, token);
+
+// Flywheel / Platform Health
+export const getPlatformHealth = (token) => get("/api/employer/platform-health", token);
+export const getFlywheelMetrics = (token) => get("/api/admin/flywheel", token);

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { listEmployerJobs, createJob, updateJob, getJobApplicants, getApplicant, getOnboardingPlans, completeOnboardingTask, listCompensation, createCompensation, initiatePayrollRun, listPayrollRuns, getRunPayslips, listPerformanceCycles, createPerformanceCycle, activatePerformanceCycle, getPerformanceCycleResults, listComplianceRules, createComplianceRule, seedComplianceTemplates, listComplianceAlerts, resolveComplianceAlert, listIntegrations, createIntegration, validateIntegration, updateIntegration, getAnalyticsReport, getAnalyticsAnomalies, getAnalyticsBenchmarks } from "./api.js";
+import { listEmployerJobs, createJob, updateJob, getJobApplicants, getApplicant, getOnboardingPlans, completeOnboardingTask, listCompensation, createCompensation, initiatePayrollRun, listPayrollRuns, getRunPayslips, listPerformanceCycles, createPerformanceCycle, activatePerformanceCycle, getPerformanceCycleResults, listComplianceRules, createComplianceRule, seedComplianceTemplates, listComplianceAlerts, resolveComplianceAlert, listIntegrations, createIntegration, validateIntegration, updateIntegration, getAnalyticsReport, getAnalyticsAnomalies, getAnalyticsBenchmarks, getPlatformHealth } from "./api.js";
 
 function bandColor(band) {
   return ({ strong_advance: "#1a7f37", advance: "#2da44e", borderline: "#bf8700",
@@ -1417,6 +1417,41 @@ function PerformanceTab({ token }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// FlywheelSection — shown in dashboard header
+// ---------------------------------------------------------------------------
+
+function FlywheelSection({ token }) {
+  const [health, setHealth] = useState(null);
+
+  useEffect(() => {
+    getPlatformHealth(token).then(setHealth).catch(() => {});
+  }, []);
+
+  if (!health) return null;
+
+  const tierColors = { platinum: "#6e40c9", gold: "#bf8700", silver: "#57606a", bronze: "#bc4c00", initializing: "#57606a", uninitialized: "#57606a" };
+
+  return (
+    <div style={{ background: "linear-gradient(135deg, #0d1117 0%, #161b22 100%)", borderRadius: "10px", padding: "14px 18px", marginBottom: "1.25rem", display: "flex", gap: "24px", flexWrap: "wrap", alignItems: "center" }}>
+      <div>
+        <div style={{ color: "#58a6ff", fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Flywheel Status</div>
+        <div style={{ color: "#e6edf3", fontSize: "15px", fontWeight: 700, marginTop: "2px" }}>{health.flywheel_health}</div>
+      </div>
+      <div>
+        <div style={{ color: "#58a6ff", fontSize: "11px", fontWeight: 600, textTransform: "uppercase" }}>Engineers</div>
+        <div style={{ color: "#e6edf3", fontSize: "15px", fontWeight: 700, marginTop: "2px" }}>{health.total_engineers_on_platform}</div>
+      </div>
+      {Object.entries(health.model_accuracy_tiers || {}).map(([model, tier]) => (
+        <div key={model}>
+          <div style={{ color: "#58a6ff", fontSize: "11px", fontWeight: 600, textTransform: "uppercase" }}>{model.replace(/_/g, " ")}</div>
+          <div style={{ color: tierColors[tier] || "#e6edf3", fontSize: "13px", fontWeight: 700, marginTop: "2px" }}>● {tier}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function JobsTab({ token, onUpgrade }) {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1537,6 +1572,8 @@ export default function EmployerDashboard({ user, token, onLogout, onUpgrade }) 
           </button>
         ))}
       </div>
+
+      <FlywheelSection token={token} />
 
       {activeTab === "Jobs" && <JobsTab token={token} onUpgrade={onUpgrade} />}
       {activeTab === "Onboarding" && <OnboardingTab token={token} />}
