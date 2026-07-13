@@ -1,4 +1,4 @@
-﻿name: AI PR Review (OpenRouter)
+name: AI PR Review (OpenRouter)
 
 on:
   pull_request:
@@ -67,7 +67,7 @@ jobs:
           Be concise and constructive. Format as markdown."""
 
           payload = json.dumps({
-              "model": "google/gemini-2.0-flash-exp:free",
+              "model": "deepseek/deepseek-v4-flash:free",
               "messages": [{"role": "user", "content": prompt}],
           }).encode()
 
@@ -87,7 +87,7 @@ jobs:
 
           review_body = result["choices"][0]["message"]["content"]
 
-          comment = {"body": "## AI Code Review\n\n" + review_body + "\n\n---\n*Automated review via OpenRouter - google/gemini-2.0-flash-exp*"}
+          comment = {"body": "## AI Code Review\n\n" + review_body + "\n\n---\n*Automated review via OpenRouter - deepseek/deepseek-v4-flash*"}
           gh_req = urllib.request.Request(
               "https://api.github.com/repos/" + os.environ["REPO"] + "/issues/" + os.environ["PR_NUMBER"] + "/comments",
               data=json.dumps(comment).encode(),
