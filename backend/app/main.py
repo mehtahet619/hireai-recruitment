@@ -2159,3 +2159,140 @@ async def api_get_analytics_benchmarks(
         return get_benchmark_comparison(claims["sub"], metric)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# Engineer Privacy Portal (Task 11.1)
+# ============================================================
+
+from .consent_store import (
+    grant_consent as _grant_consent,
+    revoke_consent as _revoke_consent,
+    get_consent,
+)
+from .signal_store import (
+    erase_pii_linkage,
+    query_signals as _query_signals,
+    compute_pseudonymous_id,
+    revoke_signals,
+)
+
+
+@app.get("/api/engineer/signals")
+async def api_engineer_signals(
+    engineer_id: str,
+    signal_type: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+):
+    """Return signals for the given engineer (self-service)."""
+    from datetime import timezone
+    try:
+        pseudo_id = compute_pseudonymous_id(engineer_id)
+        stype = None
+        if signal_type:
+            from .signal_store import SignalType as ST
+            try:
+                stype = ST(signal_type)
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Unknown signal_type: {signal_type}")
+        since_dt = datetime.fromisoformat(since) if since else datetime.now(timezone.utc).replace(year=2020)
+        until_dt = datetime.fromisoformat(until) if until else datetime.now(timezone.utc)
+        signals = _query_signals(pseudo_id, stype, since_dt, until_dt)
+        from dataclasses import asdict
+        return {"engineer_id": engineer_id, "signal_count": len(signals),
+                "signals": [asdict(s) for s in signals]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/engineer/consent")
+async def api_engineer_grant_consent(
+    body: dict,
+):
+    """Grant or update consent for signal collection."""
+    try:
+        engineer_id = body.get("engineer_id", "")
+        categories = body.get("signal_categories", [])
+        if not engineer_id:
+            raise HTTPException(status_code=400, detail="engineer_id is required")
+        from .signal_store import SignalType as ST
+        signal_types = []
+        for c in categories:
+            try:
+                signal_types.append(ST(c))
+            except ValueError:
+                pass
+        record = _grant_consent(engineer_id, signal_types)
+        from dataclasses import asdict
+        return asdict(record)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/engineer/consent")
+async def api_engineer_revoke_consent(
+    body: dict,
+):
+    """Revoke consent — stops new signal collection."""
+    try:
+        engineer_id = body.get("engineer_id", "")
+        if not engineer_id:
+            raise HTTPException(status_code=400, detail="engineer_id is required")
+        record = _revoke_consent(engineer_id)
+        if not record:
+            raise HTTPException(status_code=404, detail="No consent record found")
+        # Also mark existing signals as revoked
+        pseudo_id = compute_pseudonymous_id(engineer_id)
+        revoke_signals(pseudo_id)
+        from dataclasses import asdict
+        return asdict(record)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/engineer/erasure-request")
+async def api_engineer_erasure_request(
+    body: dict,
+):
+    """Erasure request — severs engineer_id → pseudonymous_id mapping."""
+    try:
+        engineer_id = body.get("engineer_id", "")
+        if not engineer_id:
+            raise HTTPException(status_code=400, detail="engineer_id is required")
+        # 1. Revoke consent to stop new signals
+        try:
+            _revoke_consent(engineer_id)
+        except Exception:
+            pass
+        # 2. Erase PII linkage — signals remain but are unattributable
+        erase_pii_linkage(engineer_id)
+        return {
+            "engineer_id": engineer_id,
+            "status": "erasure_initiated",
+            "message": "PII linkage erased. Your signals remain in anonymised form for aggregate model training.",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/engineer/consent")
+async def api_engineer_get_consent(engineer_id: str):
+    """Get current consent status for an engineer."""
+    try:
+        record = get_consent(engineer_id)
+        if not record:
+            return {"engineer_id": engineer_id, "has_consent": False, "consent_record": None}
+        from dataclasses import asdict
+        return {"engineer_id": engineer_id, "has_consent": record.revoked_at is None,
+                "consent_record": asdict(record)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

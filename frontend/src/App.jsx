@@ -6,11 +6,12 @@ import ApplyPage from "./ApplyPage.jsx";
 import EmployerAuth from "./EmployerAuth.jsx";
 import EmployerDashboard from "./EmployerDashboard.jsx";
 import PricingPage from "./PricingPage.jsx";
+import PrivacyPortal from "./PrivacyPortal.jsx";
 
 export default function App() {
   const { token, user, login, logout, isLoggedIn } = useAuth();
   const [health, setHealth] = useState(null);
-  const [view, setView] = useState("jobs"); // jobs | apply | pricing | employer-auth | employer-dash
+  const [view, setView] = useState("jobs"); // jobs | apply | pricing | employer-auth | employer-dash | privacy
   const [applyJobId, setApplyJobId] = useState(null);
 
   useEffect(() => {
@@ -52,6 +53,8 @@ export default function App() {
                 onClick={() => setView("jobs")}>Jobs</button>
               <button className={view === "pricing" ? "nav-active" : "btn-ghost"}
                 onClick={() => setView("pricing")}>Pricing</button>
+              <button className="btn-ghost"
+                onClick={() => setView("privacy")}>Privacy</button>
               <button className="btn-secondary"
                 onClick={() => setView("employer-auth")}>For employers</button>
             </>
@@ -97,6 +100,9 @@ export default function App() {
             onLogout={handleLogout}
             onUpgrade={() => setView("pricing")}
           />
+        )}
+        {view === "privacy" && (
+          <PrivacyPortal onBack={() => setView("jobs")} />
         )}
       </main>
     </div>
