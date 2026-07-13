@@ -1,4 +1,4 @@
-from typing import Any
+﻿from typing import Any
 from datetime import datetime
 
 from pydantic import BaseModel, Field, EmailStr
@@ -238,3 +238,14 @@ class ComplianceAlertResolveRequest(BaseModel):
 
 class ComplianceEvaluateRequest(BaseModel):
     work_data_by_engineer: dict  # {pseudonymous_id: {field: value}}
+
+
+from typing import Optional
+
+class IntegrationConnectorCreateRequest(BaseModel):
+    connector_type: str
+    config: dict = {}
+
+class IntegrationConnectorUpdateRequest(BaseModel):
+    status: Optional[str] = None
+    config: Optional[dict] = None

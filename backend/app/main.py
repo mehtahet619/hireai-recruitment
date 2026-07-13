@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Header
+﻿from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Header
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Annotated, Any
 from .config import get_settings
@@ -1966,5 +1966,120 @@ async def api_resolve_compliance_alert(
         raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# Integration Connectors (Task 9.3)
+# ============================================================
+
+from .integrations.base import (
+    IntegrationConnector as IntConnector,
+    save_connector, get_connector, list_employer_connectors, RawEvent,
+)
+from .integrations.github_connector import GitHubConnector
+from .integrations.jira_connector import JiraConnector
+from .integrations.slack_connector import SlackConnector
+from .integrations.hris_connector import HRISWebhookConnector
+from .schemas import IntegrationConnectorCreateRequest, IntegrationConnectorUpdateRequest
+
+_CONNECTOR_MAP = {
+    "github": GitHubConnector,
+    "jira": JiraConnector,
+    "slack": SlackConnector,
+    "hris_webhook": HRISWebhookConnector,
+}
+
+
+@app.post("/api/employer/integrations")
+async def api_create_integration(
+    req: IntegrationConnectorCreateRequest,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    if req.connector_type not in _CONNECTOR_MAP:
+        raise HTTPException(status_code=400, detail=f"Unknown connector type: {req.connector_type}")
+    try:
+        connector = IntConnector(
+            connector_id=str(uuid.uuid4()),
+            employer_id=claims["sub"],
+            connector_type=req.connector_type,
+            config=req.config,
+            status="disabled",
+        )
+        save_connector(connector)
+        from dataclasses import asdict
+        return asdict(connector)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/employer/integrations")
+async def api_list_integrations(
+    authorization: Annotated[str | None, Header()] = None,
+):
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        connectors = list_employer_connectors(claims["sub"])
+        from dataclasses import asdict
+        return [asdict(c) for c in connectors]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/employer/integrations/{connector_id}/validate")
+async def api_validate_integration(
+    connector_id: str,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        connector = get_connector(connector_id)
+        if not connector or connector.employer_id != claims["sub"]:
+            raise HTTPException(status_code=404, detail="Connector not found")
+        cls = _CONNECTOR_MAP.get(connector.connector_type)
+        if not cls:
+            raise HTTPException(status_code=400, detail="Unknown connector type")
+        instance = cls(connector)
+        valid = instance.validate_credentials(connector.config)
+        if valid:
+            connector.status = "active"
+            save_connector(connector)
+        return {"valid": valid, "status": connector.status}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.patch("/api/employer/integrations/{connector_id}")
+async def api_update_integration(
+    connector_id: str,
+    req: IntegrationConnectorUpdateRequest,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        connector = get_connector(connector_id)
+        if not connector or connector.employer_id != claims["sub"]:
+            raise HTTPException(status_code=404, detail="Connector not found")
+        if req.status is not None:
+            connector.status = req.status
+        if req.config is not None:
+            connector.config = req.config
+        save_connector(connector)
+        from dataclasses import asdict
+        return asdict(connector)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

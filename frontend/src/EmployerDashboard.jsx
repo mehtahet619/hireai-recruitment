@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { listEmployerJobs, createJob, updateJob, getJobApplicants, getApplicant, getOnboardingPlans, completeOnboardingTask, listCompensation, createCompensation, initiatePayrollRun, listPayrollRuns, getRunPayslips, listPerformanceCycles, createPerformanceCycle, activatePerformanceCycle, getPerformanceCycleResults, listComplianceRules, createComplianceRule, seedComplianceTemplates, listComplianceAlerts, resolveComplianceAlert } from "./api.js";
+import { listEmployerJobs, createJob, updateJob, getJobApplicants, getApplicant, getOnboardingPlans, completeOnboardingTask, listCompensation, createCompensation, initiatePayrollRun, listPayrollRuns, getRunPayslips, listPerformanceCycles, createPerformanceCycle, activatePerformanceCycle, getPerformanceCycleResults, listComplianceRules, createComplianceRule, seedComplianceTemplates, listComplianceAlerts, resolveComplianceAlert, listIntegrations, createIntegration, validateIntegration, updateIntegration } from "./api.js";
 
 function bandColor(band) {
   return ({ strong_advance: "#1a7f37", advance: "#2da44e", borderline: "#bf8700",
@@ -633,6 +633,175 @@ function PayrollTab({ token }) {
 }
 
 // ---------------------------------------------------------------------------
+// IntegrationsTab
+// ---------------------------------------------------------------------------
+
+function IntegrationsTab({ token }) {
+  const [connectors, setConnectors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [validating, setValidating] = useState(null);
+  const [toggling, setToggling] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ connector_type: "github", token: "", api_token: "", base_url: "", bot_token: "", webhook_secret: "" });
+  const [saving, setSaving] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    setError("");
+    try {
+      setConnectors(await listIntegrations(token));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function handleCreate(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const configMap = {
+        github: { token: form.token },
+        jira: { api_token: form.api_token, base_url: form.base_url },
+        slack: { bot_token: form.bot_token },
+        hris_webhook: { webhook_secret: form.webhook_secret },
+      };
+      await createIntegration({ connector_type: form.connector_type, config: configMap[form.connector_type] || {} }, token);
+      setShowForm(false);
+      setForm({ connector_type: "github", token: "", api_token: "", base_url: "", bot_token: "", webhook_secret: "" });
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleValidate(connectorId) {
+    setValidating(connectorId);
+    setError("");
+    try {
+      await validateIntegration(connectorId, token);
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setValidating(null);
+    }
+  }
+
+  async function handleToggle(connector) {
+    setToggling(connector.connector_id);
+    setError("");
+    try {
+      const newStatus = connector.status === "disabled" ? "active" : "disabled";
+      await updateIntegration(connector.connector_id, { status: newStatus }, token);
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setToggling(null);
+    }
+  }
+
+  function statusColor(status) {
+    return status === "active" ? "#2da44e" : status === "degraded" ? "#d1242f" : "#57606a";
+  }
+
+  const CONNECTOR_TYPES = ["github", "jira", "slack", "hris_webhook"];
+
+  if (loading) return <div className="muted">Loading integrations…</div>;
+
+  return (
+    <div>
+      {error && <div className="error" style={{ marginBottom: "1rem" }}>{error}</div>}
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+        <h3 style={{ margin: 0 }}>Integration Connectors</h3>
+        <button className="btn-secondary" onClick={() => setShowForm(!showForm)}>
+          {showForm ? "Cancel" : "+ Add Connector"}
+        </button>
+      </div>
+
+      {showForm && (
+        <form className="card" onSubmit={handleCreate} style={{ marginBottom: "1rem" }}>
+          <div className="form-row">
+            <div>
+              <label>Connector Type</label>
+              <select value={form.connector_type} onChange={e => setForm({ ...form, connector_type: e.target.value })}>
+                {CONNECTOR_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          </div>
+          {form.connector_type === "github" && (
+            <div><label>GitHub Token</label><input type="password" value={form.token} onChange={e => setForm({ ...form, token: e.target.value })} placeholder="ghp_..." /></div>
+          )}
+          {form.connector_type === "jira" && (<>
+            <div><label>Jira Base URL</label><input value={form.base_url} onChange={e => setForm({ ...form, base_url: e.target.value })} placeholder="https://company.atlassian.net" /></div>
+            <div><label>API Token</label><input type="password" value={form.api_token} onChange={e => setForm({ ...form, api_token: e.target.value })} /></div>
+          </>)}
+          {form.connector_type === "slack" && (
+            <div><label>Bot Token</label><input type="password" value={form.bot_token} onChange={e => setForm({ ...form, bot_token: e.target.value })} placeholder="xoxb-..." /></div>
+          )}
+          {form.connector_type === "hris_webhook" && (
+            <div><label>Webhook Secret</label><input type="password" value={form.webhook_secret} onChange={e => setForm({ ...form, webhook_secret: e.target.value })} /></div>
+          )}
+          <button type="submit" disabled={saving}>{saving ? "Saving…" : "Add Connector"}</button>
+        </form>
+      )}
+
+      {connectors.length === 0 ? (
+        <div className="empty-state muted">No connectors yet. Add one to start collecting signals from your engineering tools.</div>
+      ) : (
+        <div className="job-list">
+          {connectors.map(c => (
+            <div key={c.connector_id} className="card" style={{ marginBottom: "8px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <strong style={{ textTransform: "capitalize" }}>{c.connector_type.replace("_", " ")}</strong>
+                  <div style={{ display: "flex", gap: "8px", marginTop: "6px", flexWrap: "wrap" }}>
+                    <span className="tag" style={{ color: statusColor(c.status), fontWeight: 600 }}>
+                      ● {c.status}
+                    </span>
+                    {c.last_sync_at && (
+                      <span className="muted" style={{ fontSize: "12px" }}>
+                        Last sync: {new Date(c.last_sync_at).toLocaleString()}
+                      </span>
+                    )}
+                    {c.error_count > 0 && (
+                      <span className="tag" style={{ background: "#ffebe9", color: "#d1242f", fontSize: "11px" }}>
+                        {c.error_count} error{c.error_count !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
+                  <button className="btn-secondary" style={{ padding: "4px 10px", fontSize: "12px" }}
+                    disabled={validating === c.connector_id}
+                    onClick={() => handleValidate(c.connector_id)}>
+                    {validating === c.connector_id ? "…" : "Validate"}
+                  </button>
+                  <button className="btn-ghost" style={{ padding: "4px 10px", fontSize: "12px" }}
+                    disabled={toggling === c.connector_id}
+                    onClick={() => handleToggle(c)}>
+                    {toggling === c.connector_id ? "…" : c.status === "disabled" ? "Enable" : "Disable"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // ComplianceTab
 // ---------------------------------------------------------------------------
 
@@ -1214,7 +1383,7 @@ function JobsTab({ token, onUpgrade }) {
   );
 }
 
-const TABS = ["Jobs", "Onboarding", "Payroll", "Performance", "Compliance"];
+const TABS = ["Jobs", "Onboarding", "Payroll", "Performance", "Compliance", "Integrations"];
 
 export default function EmployerDashboard({ user, token, onLogout, onUpgrade }) {
   const [activeTab, setActiveTab] = useState("Jobs");
@@ -1246,6 +1415,7 @@ export default function EmployerDashboard({ user, token, onLogout, onUpgrade }) 
       {activeTab === "Payroll" && <PayrollTab token={token} />}
       {activeTab === "Performance" && <PerformanceTab token={token} />}
       {activeTab === "Compliance" && <ComplianceTab token={token} />}
+      {activeTab === "Integrations" && <IntegrationsTab token={token} />}
     </div>
   );
 }

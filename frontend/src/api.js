@@ -1,4 +1,4 @@
-const BASE = import.meta.env.VITE_API_BASE || "";
+﻿const BASE = import.meta.env.VITE_API_BASE || "";
 
 async function req(method, path, body, token) {
   const headers = { "Content-Type": "application/json" };
@@ -101,3 +101,9 @@ export const initiatePayrollRun = (token) => post("/api/employer/payroll/runs", 
 export const listPayrollRuns = (token) => get("/api/employer/payroll/runs", token);
 export const getPayrollRun = (runId, token) => get(`/api/employer/payroll/runs/${runId}`, token);
 export const getRunPayslips = (runId, token) => get(`/api/employer/payroll/runs/${runId}/payslips`, token);
+
+// Integrations
+export const listIntegrations = (token) => get("/api/employer/integrations", token);
+export const createIntegration = (data, token) => post("/api/employer/integrations", data, token);
+export const validateIntegration = (connectorId, token) => post("/api/employer/integrations/${connectorId}/validate", {}, token);
+export const updateIntegration = (connectorId, data, token) => patch("/api/employer/integrations/${connectorId}", data, token);
