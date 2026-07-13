@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { listEmployerJobs, createJob, updateJob, getJobApplicants, getApplicant, getOnboardingPlans, completeOnboardingTask, listCompensation, createCompensation, initiatePayrollRun, listPayrollRuns, getRunPayslips, listPerformanceCycles, createPerformanceCycle, activatePerformanceCycle, getPerformanceCycleResults, listComplianceRules, createComplianceRule, seedComplianceTemplates, listComplianceAlerts, resolveComplianceAlert, listIntegrations, createIntegration, validateIntegration, updateIntegration } from "./api.js";
+import { listEmployerJobs, createJob, updateJob, getJobApplicants, getApplicant, getOnboardingPlans, completeOnboardingTask, listCompensation, createCompensation, initiatePayrollRun, listPayrollRuns, getRunPayslips, listPerformanceCycles, createPerformanceCycle, activatePerformanceCycle, getPerformanceCycleResults, listComplianceRules, createComplianceRule, seedComplianceTemplates, listComplianceAlerts, resolveComplianceAlert, listIntegrations, createIntegration, validateIntegration, updateIntegration, getAnalyticsReport, getAnalyticsAnomalies, getAnalyticsBenchmarks } from "./api.js";
 
 function bandColor(band) {
   return ({ strong_advance: "#1a7f37", advance: "#2da44e", borderline: "#bf8700",
@@ -627,6 +627,134 @@ function PayrollTab({ token }) {
             </div>
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AnalyticsTab
+// ---------------------------------------------------------------------------
+
+const REPORT_TYPES = [
+  { key: "hiring_funnel", label: "Hiring Funnel" },
+  { key: "time_to_hire", label: "Time to Hire" },
+  { key: "onboarding_completion", label: "Onboarding Completion" },
+  { key: "performance_distributions", label: "Performance Scores" },
+  { key: "attrition_risk", label: "Attrition Risk" },
+  { key: "team_composition", label: "Team Composition" },
+];
+
+const BASE = import.meta.env.VITE_API_BASE || "";
+
+function AnalyticsTab({ token }) {
+  const [activeReport, setActiveReport] = useState("hiring_funnel");
+  const [reportData, setReportData] = useState(null);
+  const [anomalies, setAnomalies] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function loadReport(type) {
+    setActiveReport(type);
+    setLoading(true);
+    setError("");
+    try {
+      const [data, anom] = await Promise.all([
+        getAnalyticsReport(type, token),
+        getAnalyticsAnomalies(token),
+      ]);
+      setReportData(data);
+      setAnomalies(anom);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { loadReport("hiring_funnel"); }, []);
+
+  function handleExport(fmt) {
+    const url = `${BASE}/api/employer/analytics/${activeReport}/export?fmt=${fmt}`;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${activeReport}.${fmt}`;
+    // add auth header via fetch then blob download
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.blob())
+      .then(blob => {
+        const objUrl = URL.createObjectURL(blob);
+        a.href = objUrl;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(objUrl);
+      })
+      .catch(e => setError(e.message));
+  }
+
+  function renderMetric(key, value) {
+    if (typeof value === "number") {
+      const display = Number.isInteger(value) ? value : (value * 100).toFixed(1) + (key.includes("rate") || key.includes("pct") ? "%" : "");
+      return <div key={key} className="card" style={{ padding: "12px 16px", flex: "1", minWidth: "120px" }}>
+        <div className="muted" style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px" }}>{key.replace(/_/g, " ")}</div>
+        <div style={{ fontSize: "24px", fontWeight: 700, marginTop: "4px" }}>{display}</div>
+      </div>;
+    }
+    if (typeof value === "object" && value !== null) {
+      return <div key={key} className="card" style={{ padding: "12px 16px", flex: "1", minWidth: "160px" }}>
+        <div className="muted" style={{ fontSize: "11px", textTransform: "uppercase" }}>{key.replace(/_/g, " ")}</div>
+        {Object.entries(value).map(([k, v]) => (
+          <div key={k} style={{ fontSize: "13px", marginTop: "4px" }}>
+            <span className="muted">{k}: </span><strong>{v}</strong>
+          </div>
+        ))}
+      </div>;
+    }
+    return null;
+  }
+
+  return (
+    <div>
+      {error && <div className="error" style={{ marginBottom: "1rem" }}>{error}</div>}
+
+      {/* Anomaly alert panel */}
+      {anomalies.length > 0 && (
+        <div style={{ background: "#fff8c5", border: "1px solid #d4a72c", borderRadius: "8px", padding: "10px 14px", marginBottom: "1rem" }}>
+          <strong>⚠ {anomalies.length} anomaly alert{anomalies.length !== 1 ? "s" : ""} detected</strong>
+          {anomalies.map((a, i) => (
+            <div key={i} className="muted" style={{ fontSize: "12px", marginTop: "4px" }}>{a.message}</div>
+          ))}
+        </div>
+      )}
+
+      {/* Report selector */}
+      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "1rem" }}>
+        {REPORT_TYPES.map(r => (
+          <button key={r.key}
+            className={activeReport === r.key ? "" : "btn-secondary"}
+            style={{ padding: "6px 12px", fontSize: "13px" }}
+            onClick={() => loadReport(r.key)}>
+            {r.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Export buttons */}
+      <div style={{ display: "flex", gap: "8px", marginBottom: "1rem" }}>
+        <button className="btn-ghost" style={{ fontSize: "12px" }} onClick={() => handleExport("json")}>↓ JSON</button>
+        <button className="btn-ghost" style={{ fontSize: "12px" }} onClick={() => handleExport("csv")}>↓ CSV</button>
+      </div>
+
+      {/* Report data */}
+      {loading ? (
+        <div className="muted">Loading report…</div>
+      ) : reportData ? (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "12px" }}>
+          {Object.entries(reportData).map(([k, v]) => renderMetric(k, v))}
+        </div>
+      ) : (
+        <div className="empty-state muted">No data available.</div>
       )}
     </div>
   );
@@ -1383,7 +1511,7 @@ function JobsTab({ token, onUpgrade }) {
   );
 }
 
-const TABS = ["Jobs", "Onboarding", "Payroll", "Performance", "Compliance", "Integrations"];
+const TABS = ["Jobs", "Onboarding", "Payroll", "Performance", "Compliance", "Integrations", "Analytics"];
 
 export default function EmployerDashboard({ user, token, onLogout, onUpgrade }) {
   const [activeTab, setActiveTab] = useState("Jobs");
@@ -1416,6 +1544,7 @@ export default function EmployerDashboard({ user, token, onLogout, onUpgrade }) 
       {activeTab === "Performance" && <PerformanceTab token={token} />}
       {activeTab === "Compliance" && <ComplianceTab token={token} />}
       {activeTab === "Integrations" && <IntegrationsTab token={token} />}
+      {activeTab === "Analytics" && <AnalyticsTab token={token} />}
     </div>
   );
 }

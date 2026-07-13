@@ -107,3 +107,8 @@ export const listIntegrations = (token) => get("/api/employer/integrations", tok
 export const createIntegration = (data, token) => post("/api/employer/integrations", data, token);
 export const validateIntegration = (connectorId, token) => post("/api/employer/integrations/${connectorId}/validate", {}, token);
 export const updateIntegration = (connectorId, data, token) => patch("/api/employer/integrations/${connectorId}", data, token);
+
+// Analytics
+export const getAnalyticsReport = (reportType, token) => get(`/api/employer/analytics/${reportType}`, token);
+export const getAnalyticsAnomalies = (token) => get("/api/employer/analytics/anomalies", token);
+export const getAnalyticsBenchmarks = (metric, token) => get(`/api/employer/analytics/benchmarks?metric=${metric}`, token);

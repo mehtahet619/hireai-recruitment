@@ -2083,3 +2083,79 @@ async def api_update_integration(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# Workforce Analytics (Task 10.3)
+# ============================================================
+
+from .analytics_engine import (
+    REPORT_GENERATORS, export_report, get_anomalies, get_benchmark_comparison,
+)
+
+
+@app.get("/api/employer/analytics/{report_type}")
+async def api_get_analytics_report(
+    report_type: str,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    gen = REPORT_GENERATORS.get(report_type)
+    if not gen:
+        raise HTTPException(status_code=404, detail=f"Unknown report type: {report_type}")
+    try:
+        return gen(claims["sub"])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/employer/analytics/{report_type}/export")
+async def api_export_analytics_report(
+    report_type: str,
+    fmt: str = "json",
+    authorization: Annotated[str | None, Header()] = None,
+):
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    gen = REPORT_GENERATORS.get(report_type)
+    if not gen:
+        raise HTTPException(status_code=404, detail=f"Unknown report type: {report_type}")
+    try:
+        data = gen(claims["sub"])
+        content = export_report(report_type, data, fmt=fmt)
+        media_type = "text/csv" if fmt == "csv" else "application/json"
+        from fastapi.responses import Response
+        return Response(content=content, media_type=media_type,
+                        headers={"Content-Disposition": f"attachment; filename={report_type}.{fmt}"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/employer/analytics/anomalies")
+async def api_get_analytics_anomalies(
+    authorization: Annotated[str | None, Header()] = None,
+):
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        return get_anomalies(claims["sub"])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/employer/analytics/benchmarks")
+async def api_get_analytics_benchmarks(
+    metric: str = "interview_rate",
+    authorization: Annotated[str | None, Header()] = None,
+):
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        return get_benchmark_comparison(claims["sub"], metric)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
