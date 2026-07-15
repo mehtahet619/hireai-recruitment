@@ -1,6 +1,8 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Header
+﻿from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Header
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Annotated, Any
+import asyncio
+
 from .config import get_settings
 from .schemas import (
     JDParseRequest,
@@ -1966,5 +1968,419 @@ async def api_resolve_compliance_alert(
         raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# Integration Connectors (Task 9.3)
+# ============================================================
+
+from .integrations.base import (
+    IntegrationConnector as IntConnector,
+    save_connector, get_connector, list_employer_connectors, RawEvent,
+)
+from .integrations.base import list_active_connectors
+from .integrations.github_connector import GitHubConnector
+from .integrations.jira_connector import JiraConnector
+from .integrations.slack_connector import SlackConnector
+from .integrations.hris_connector import HRISWebhookConnector
+from .schemas import IntegrationConnectorCreateRequest, IntegrationConnectorUpdateRequest
+
+_CONNECTOR_MAP = {
+    "github": GitHubConnector,
+    "jira": JiraConnector,
+    "slack": SlackConnector,
+    "hris_webhook": HRISWebhookConnector,
+}
+
+
+def _poll_active_connectors_once() -> None:
+    processor = Signal_Processor()
+    for connector in list_active_connectors():
+        cls = _CONNECTOR_MAP.get(connector.connector_type)
+        if not cls:
+            continue
+        instance = cls(connector)
+        try:
+            if connector.last_sync_at:
+                since = datetime.fromisoformat(connector.last_sync_at)
+            else:
+                since = datetime.now(timezone.utc) - timedelta(minutes=30)
+            events = instance.pull_with_retry(since)
+            for event in events:
+                normalized = instance.normalize_event(event)
+                if not normalized:
+                    continue
+                try:
+                    processor.normalize_signal(
+                        engineer_id=normalized["engineer_ref"],
+                        signal_type=SignalType(normalized["signal_type"]),
+                        raw_payload=normalized["payload"],
+                        source_system=normalized["source_system"],
+                        employer_id=normalized["employer_id"],
+                    )
+                except ConsentError:
+                    continue
+                except ValueError:
+                    continue
+            connector.status = "active"
+            save_connector(connector)
+        except Exception:
+            connector.status = "degraded"
+            save_connector(connector)
+
+
+async def _integration_poller_loop(interval_seconds: int = 30) -> None:
+    while True:
+        try:
+            await asyncio.to_thread(_poll_active_connectors_once)
+        except Exception:
+            pass
+        await asyncio.sleep(interval_seconds)
+
+
+@app.on_event("startup")
+async def _start_integration_poller() -> None:
+    asyncio.create_task(_integration_poller_loop())
+
+
+@app.post("/api/employer/integrations")
+async def api_create_integration(
+    req: IntegrationConnectorCreateRequest,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    if req.connector_type not in _CONNECTOR_MAP:
+        raise HTTPException(status_code=400, detail=f"Unknown connector type: {req.connector_type}")
+    try:
+        connector = IntConnector(
+            connector_id=str(uuid.uuid4()),
+            employer_id=claims["sub"],
+            connector_type=req.connector_type,
+            config=req.config,
+            status="disabled",
+        )
+        save_connector(connector)
+        from dataclasses import asdict
+        return asdict(connector)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/employer/integrations")
+async def api_list_integrations(
+    authorization: Annotated[str | None, Header()] = None,
+):
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        connectors = list_employer_connectors(claims["sub"])
+        from dataclasses import asdict
+        return [asdict(c) for c in connectors]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/employer/integrations/{connector_id}/validate")
+async def api_validate_integration(
+    connector_id: str,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        connector = get_connector(connector_id)
+        if not connector or connector.employer_id != claims["sub"]:
+            raise HTTPException(status_code=404, detail="Connector not found")
+        cls = _CONNECTOR_MAP.get(connector.connector_type)
+        if not cls:
+            raise HTTPException(status_code=400, detail="Unknown connector type")
+        instance = cls(connector)
+        valid = instance.validate_credentials(connector.config)
+        if valid:
+            connector.status = "active"
+            save_connector(connector)
+        return {"valid": valid, "status": connector.status}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.patch("/api/employer/integrations/{connector_id}")
+async def api_update_integration(
+    connector_id: str,
+    req: IntegrationConnectorUpdateRequest,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        connector = get_connector(connector_id)
+        if not connector or connector.employer_id != claims["sub"]:
+            raise HTTPException(status_code=404, detail="Connector not found")
+        if req.status is not None:
+            connector.status = req.status
+        if req.config is not None:
+            connector.config = req.config
+        save_connector(connector)
+        from dataclasses import asdict
+        return asdict(connector)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# Workforce Analytics (Task 10.3)
+# ============================================================
+
+from .analytics_engine import (
+    REPORT_GENERATORS, export_report, get_anomalies, get_benchmark_comparison,
+)
+
+
+@app.get("/api/employer/analytics/anomalies")
+async def api_get_analytics_anomalies(
+    authorization: Annotated[str | None, Header()] = None,
+):
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        return get_anomalies(claims["sub"])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/employer/analytics/benchmarks")
+async def api_get_analytics_benchmarks(
+    metric: str = "interview_rate",
+    authorization: Annotated[str | None, Header()] = None,
+):
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        return get_benchmark_comparison(claims["sub"], metric)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/employer/analytics/{report_type}")
+async def api_get_analytics_report(
+    report_type: str,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    gen = REPORT_GENERATORS.get(report_type)
+    if not gen:
+        raise HTTPException(status_code=404, detail=f"Unknown report type: {report_type}")
+    try:
+        return gen(claims["sub"])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/employer/analytics/{report_type}/export")
+async def api_export_analytics_report(
+    report_type: str,
+    fmt: str = "json",
+    authorization: Annotated[str | None, Header()] = None,
+):
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    gen = REPORT_GENERATORS.get(report_type)
+    if not gen:
+        raise HTTPException(status_code=404, detail=f"Unknown report type: {report_type}")
+    try:
+        data = gen(claims["sub"])
+        content = export_report(report_type, data, fmt=fmt)
+        media_type = "text/csv" if fmt == "csv" else "application/json"
+        from fastapi.responses import Response
+        return Response(content=content, media_type=media_type,
+                        headers={"Content-Disposition": f"attachment; filename={report_type}.{fmt}"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# Engineer Privacy Portal (Task 11.1)
+# ============================================================
+
+from .consent_store import (
+    grant_consent as _grant_consent,
+    revoke_consent as _revoke_consent,
+    get_consent,
+)
+from .signal_store import (
+    erase_pii_linkage,
+    query_signals as _query_signals,
+    compute_pseudonymous_id,
+    revoke_signals,
+)
+
+
+@app.get("/api/engineer/signals")
+async def api_engineer_signals(
+    engineer_id: str,
+    signal_type: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+):
+    """Return signals for the given engineer (self-service)."""
+    from datetime import timezone
+    try:
+        pseudo_id = compute_pseudonymous_id(engineer_id)
+        stype = None
+        if signal_type:
+            from .signal_store import SignalType as ST
+            try:
+                stype = ST(signal_type)
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Unknown signal_type: {signal_type}")
+        since_dt = datetime.fromisoformat(since) if since else datetime.now(timezone.utc).replace(year=2020)
+        until_dt = datetime.fromisoformat(until) if until else datetime.now(timezone.utc)
+        signals = _query_signals(pseudo_id, stype, since_dt, until_dt)
+        from dataclasses import asdict
+        return {"engineer_id": engineer_id, "signal_count": len(signals),
+                "signals": [asdict(s) for s in signals]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/engineer/consent")
+async def api_engineer_grant_consent(
+    body: dict,
+):
+    """Grant or update consent for signal collection."""
+    try:
+        engineer_id = body.get("engineer_id", "")
+        categories = body.get("signal_categories", [])
+        if not engineer_id:
+            raise HTTPException(status_code=400, detail="engineer_id is required")
+        from .signal_store import SignalType as ST
+        signal_types = []
+        for c in categories:
+            try:
+                signal_types.append(ST(c))
+            except ValueError:
+                pass
+        record = _grant_consent(engineer_id, signal_types)
+        from dataclasses import asdict
+        return asdict(record)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/engineer/consent")
+async def api_engineer_revoke_consent(
+    body: dict,
+):
+    """Revoke consent — stops new signal collection."""
+    try:
+        engineer_id = body.get("engineer_id", "")
+        if not engineer_id:
+            raise HTTPException(status_code=400, detail="engineer_id is required")
+        record = _revoke_consent(engineer_id)
+        if not record:
+            raise HTTPException(status_code=404, detail="No consent record found")
+        # Also mark existing signals as revoked
+        pseudo_id = compute_pseudonymous_id(engineer_id)
+        revoke_signals(pseudo_id)
+        from dataclasses import asdict
+        return asdict(record)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/engineer/erasure-request")
+async def api_engineer_erasure_request(
+    body: dict,
+):
+    """Erasure request — severs engineer_id → pseudonymous_id mapping."""
+    try:
+        engineer_id = body.get("engineer_id", "")
+        if not engineer_id:
+            raise HTTPException(status_code=400, detail="engineer_id is required")
+        # 1. Revoke consent to stop new signals
+        try:
+            _revoke_consent(engineer_id)
+        except Exception:
+            pass
+        # 2. Erase PII linkage — signals remain but are unattributable
+        erase_pii_linkage(engineer_id)
+        return {
+            "engineer_id": engineer_id,
+            "status": "erasure_initiated",
+            "message": "PII linkage erased. Your signals remain in anonymised form for aggregate model training.",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/engineer/consent")
+async def api_engineer_get_consent(engineer_id: str):
+    """Get current consent status for an engineer."""
+    try:
+        record = get_consent(engineer_id)
+        if not record:
+            return {"engineer_id": engineer_id, "has_consent": False, "consent_record": None}
+        from dataclasses import asdict
+        return {"engineer_id": engineer_id, "has_consent": record.revoked_at is None,
+                "consent_record": asdict(record)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# Flywheel Metrics (Task 12.2)
+# ============================================================
+
+from .flywheel_metrics import get_flywheel_metrics, get_platform_health_summary
+
+
+@app.get("/api/admin/flywheel")
+async def api_admin_flywheel(
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Platform admin only — full flywheel metrics."""
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        return get_flywheel_metrics()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/employer/platform-health")
+async def api_employer_platform_health(
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Anonymized platform health summary visible to employers."""
+    claims = get_current_employer(authorization)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        return get_platform_health_summary()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

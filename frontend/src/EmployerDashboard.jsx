@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { listEmployerJobs, createJob, updateJob, getJobApplicants, getApplicant, getOnboardingPlans, completeOnboardingTask, listCompensation, createCompensation, initiatePayrollRun, listPayrollRuns, getRunPayslips, listPerformanceCycles, createPerformanceCycle, activatePerformanceCycle, getPerformanceCycleResults, listComplianceRules, createComplianceRule, seedComplianceTemplates, listComplianceAlerts, resolveComplianceAlert } from "./api.js";
+import { listEmployerJobs, createJob, updateJob, getJobApplicants, getApplicant, getOnboardingPlans, completeOnboardingTask, listCompensation, createCompensation, initiatePayrollRun, listPayrollRuns, getRunPayslips, listPerformanceCycles, createPerformanceCycle, activatePerformanceCycle, getPerformanceCycleResults, listComplianceRules, createComplianceRule, seedComplianceTemplates, listComplianceAlerts, resolveComplianceAlert, listIntegrations, createIntegration, validateIntegration, updateIntegration, getAnalyticsReport, getAnalyticsAnomalies, getAnalyticsBenchmarks, getPlatformHealth } from "./api.js";
 
 function bandColor(band) {
   return ({ strong_advance: "#1a7f37", advance: "#2da44e", borderline: "#bf8700",
@@ -633,6 +633,303 @@ function PayrollTab({ token }) {
 }
 
 // ---------------------------------------------------------------------------
+// AnalyticsTab
+// ---------------------------------------------------------------------------
+
+const REPORT_TYPES = [
+  { key: "hiring_funnel", label: "Hiring Funnel" },
+  { key: "time_to_hire", label: "Time to Hire" },
+  { key: "onboarding_completion", label: "Onboarding Completion" },
+  { key: "performance_distributions", label: "Performance Scores" },
+  { key: "attrition_risk", label: "Attrition Risk" },
+  { key: "team_composition", label: "Team Composition" },
+];
+
+const BASE = import.meta.env.VITE_API_BASE || "";
+
+function AnalyticsTab({ token }) {
+  const [activeReport, setActiveReport] = useState("hiring_funnel");
+  const [reportData, setReportData] = useState(null);
+  const [anomalies, setAnomalies] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function loadReport(type) {
+    setActiveReport(type);
+    setLoading(true);
+    setError("");
+    try {
+      const [data, anom] = await Promise.all([
+        getAnalyticsReport(type, token),
+        getAnalyticsAnomalies(token),
+      ]);
+      setReportData(data);
+      setAnomalies(anom);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { loadReport("hiring_funnel"); }, []);
+
+  function handleExport(fmt) {
+    const url = `${BASE}/api/employer/analytics/${activeReport}/export?fmt=${fmt}`;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${activeReport}.${fmt}`;
+    // add auth header via fetch then blob download
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.blob())
+      .then(blob => {
+        const objUrl = URL.createObjectURL(blob);
+        a.href = objUrl;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(objUrl);
+      })
+      .catch(e => setError(e.message));
+  }
+
+  function renderMetric(key, value) {
+    if (typeof value === "number") {
+      const display = Number.isInteger(value) ? value : (value * 100).toFixed(1) + (key.includes("rate") || key.includes("pct") ? "%" : "");
+      return <div key={key} className="card" style={{ padding: "12px 16px", flex: "1", minWidth: "120px" }}>
+        <div className="muted" style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px" }}>{key.replace(/_/g, " ")}</div>
+        <div style={{ fontSize: "24px", fontWeight: 700, marginTop: "4px" }}>{display}</div>
+      </div>;
+    }
+    if (typeof value === "object" && value !== null) {
+      return <div key={key} className="card" style={{ padding: "12px 16px", flex: "1", minWidth: "160px" }}>
+        <div className="muted" style={{ fontSize: "11px", textTransform: "uppercase" }}>{key.replace(/_/g, " ")}</div>
+        {Object.entries(value).map(([k, v]) => (
+          <div key={k} style={{ fontSize: "13px", marginTop: "4px" }}>
+            <span className="muted">{k}: </span><strong>{v}</strong>
+          </div>
+        ))}
+      </div>;
+    }
+    return null;
+  }
+
+  return (
+    <div>
+      {error && <div className="error" style={{ marginBottom: "1rem" }}>{error}</div>}
+
+      {/* Anomaly alert panel */}
+      {anomalies.length > 0 && (
+        <div style={{ background: "#fff8c5", border: "1px solid #d4a72c", borderRadius: "8px", padding: "10px 14px", marginBottom: "1rem" }}>
+          <strong>⚠ {anomalies.length} anomaly alert{anomalies.length !== 1 ? "s" : ""} detected</strong>
+          {anomalies.map((a, i) => (
+            <div key={i} className="muted" style={{ fontSize: "12px", marginTop: "4px" }}>{a.message}</div>
+          ))}
+        </div>
+      )}
+
+      {/* Report selector */}
+      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "1rem" }}>
+        {REPORT_TYPES.map(r => (
+          <button key={r.key}
+            className={activeReport === r.key ? "" : "btn-secondary"}
+            style={{ padding: "6px 12px", fontSize: "13px" }}
+            onClick={() => loadReport(r.key)}>
+            {r.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Export buttons */}
+      <div style={{ display: "flex", gap: "8px", marginBottom: "1rem" }}>
+        <button className="btn-ghost" style={{ fontSize: "12px" }} onClick={() => handleExport("json")}>↓ JSON</button>
+        <button className="btn-ghost" style={{ fontSize: "12px" }} onClick={() => handleExport("csv")}>↓ CSV</button>
+      </div>
+
+      {/* Report data */}
+      {loading ? (
+        <div className="muted">Loading report…</div>
+      ) : reportData ? (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "12px" }}>
+          {Object.entries(reportData).map(([k, v]) => renderMetric(k, v))}
+        </div>
+      ) : (
+        <div className="empty-state muted">No data available.</div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// IntegrationsTab
+// ---------------------------------------------------------------------------
+
+function IntegrationsTab({ token }) {
+  const [connectors, setConnectors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [validating, setValidating] = useState(null);
+  const [toggling, setToggling] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ connector_type: "github", token: "", api_token: "", base_url: "", bot_token: "", webhook_secret: "" });
+  const [saving, setSaving] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    setError("");
+    try {
+      setConnectors(await listIntegrations(token));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function handleCreate(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const configMap = {
+        github: { token: form.token },
+        jira: { api_token: form.api_token, base_url: form.base_url },
+        slack: { bot_token: form.bot_token },
+        hris_webhook: { webhook_secret: form.webhook_secret },
+      };
+      await createIntegration({ connector_type: form.connector_type, config: configMap[form.connector_type] || {} }, token);
+      setShowForm(false);
+      setForm({ connector_type: "github", token: "", api_token: "", base_url: "", bot_token: "", webhook_secret: "" });
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleValidate(connectorId) {
+    setValidating(connectorId);
+    setError("");
+    try {
+      await validateIntegration(connectorId, token);
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setValidating(null);
+    }
+  }
+
+  async function handleToggle(connector) {
+    setToggling(connector.connector_id);
+    setError("");
+    try {
+      const newStatus = connector.status === "disabled" ? "active" : "disabled";
+      await updateIntegration(connector.connector_id, { status: newStatus }, token);
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setToggling(null);
+    }
+  }
+
+  function statusColor(status) {
+    return status === "active" ? "#2da44e" : status === "degraded" ? "#d1242f" : "#57606a";
+  }
+
+  const CONNECTOR_TYPES = ["github", "jira", "slack", "hris_webhook"];
+
+  if (loading) return <div className="muted">Loading integrations…</div>;
+
+  return (
+    <div>
+      {error && <div className="error" style={{ marginBottom: "1rem" }}>{error}</div>}
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+        <h3 style={{ margin: 0 }}>Integration Connectors</h3>
+        <button className="btn-secondary" onClick={() => setShowForm(!showForm)}>
+          {showForm ? "Cancel" : "+ Add Connector"}
+        </button>
+      </div>
+
+      {showForm && (
+        <form className="card" onSubmit={handleCreate} style={{ marginBottom: "1rem" }}>
+          <div className="form-row">
+            <div>
+              <label>Connector Type</label>
+              <select value={form.connector_type} onChange={e => setForm({ ...form, connector_type: e.target.value })}>
+                {CONNECTOR_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          </div>
+          {form.connector_type === "github" && (
+            <div><label>GitHub Token</label><input type="password" value={form.token} onChange={e => setForm({ ...form, token: e.target.value })} placeholder="ghp_..." /></div>
+          )}
+          {form.connector_type === "jira" && (<>
+            <div><label>Jira Base URL</label><input value={form.base_url} onChange={e => setForm({ ...form, base_url: e.target.value })} placeholder="https://company.atlassian.net" /></div>
+            <div><label>API Token</label><input type="password" value={form.api_token} onChange={e => setForm({ ...form, api_token: e.target.value })} /></div>
+          </>)}
+          {form.connector_type === "slack" && (
+            <div><label>Bot Token</label><input type="password" value={form.bot_token} onChange={e => setForm({ ...form, bot_token: e.target.value })} placeholder="xoxb-..." /></div>
+          )}
+          {form.connector_type === "hris_webhook" && (
+            <div><label>Webhook Secret</label><input type="password" value={form.webhook_secret} onChange={e => setForm({ ...form, webhook_secret: e.target.value })} /></div>
+          )}
+          <button type="submit" disabled={saving}>{saving ? "Saving…" : "Add Connector"}</button>
+        </form>
+      )}
+
+      {connectors.length === 0 ? (
+        <div className="empty-state muted">No connectors yet. Add one to start collecting signals from your engineering tools.</div>
+      ) : (
+        <div className="job-list">
+          {connectors.map(c => (
+            <div key={c.connector_id} className="card" style={{ marginBottom: "8px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <strong style={{ textTransform: "capitalize" }}>{c.connector_type.replace("_", " ")}</strong>
+                  <div style={{ display: "flex", gap: "8px", marginTop: "6px", flexWrap: "wrap" }}>
+                    <span className="tag" style={{ color: statusColor(c.status), fontWeight: 600 }}>
+                      ● {c.status}
+                    </span>
+                    {c.last_sync_at && (
+                      <span className="muted" style={{ fontSize: "12px" }}>
+                        Last sync: {new Date(c.last_sync_at).toLocaleString()}
+                      </span>
+                    )}
+                    {c.error_count > 0 && (
+                      <span className="tag" style={{ background: "#ffebe9", color: "#d1242f", fontSize: "11px" }}>
+                        {c.error_count} error{c.error_count !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
+                  <button className="btn-secondary" style={{ padding: "4px 10px", fontSize: "12px" }}
+                    disabled={validating === c.connector_id}
+                    onClick={() => handleValidate(c.connector_id)}>
+                    {validating === c.connector_id ? "…" : "Validate"}
+                  </button>
+                  <button className="btn-ghost" style={{ padding: "4px 10px", fontSize: "12px" }}
+                    disabled={toggling === c.connector_id}
+                    onClick={() => handleToggle(c)}>
+                    {toggling === c.connector_id ? "…" : c.status === "disabled" ? "Enable" : "Disable"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // ComplianceTab
 // ---------------------------------------------------------------------------
 
@@ -1120,6 +1417,41 @@ function PerformanceTab({ token }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// FlywheelSection — shown in dashboard header
+// ---------------------------------------------------------------------------
+
+function FlywheelSection({ token }) {
+  const [health, setHealth] = useState(null);
+
+  useEffect(() => {
+    getPlatformHealth(token).then(setHealth).catch(() => {});
+  }, []);
+
+  if (!health) return null;
+
+  const tierColors = { platinum: "#6e40c9", gold: "#bf8700", silver: "#57606a", bronze: "#bc4c00", initializing: "#57606a", uninitialized: "#57606a" };
+
+  return (
+    <div style={{ background: "linear-gradient(135deg, #0d1117 0%, #161b22 100%)", borderRadius: "10px", padding: "14px 18px", marginBottom: "1.25rem", display: "flex", gap: "24px", flexWrap: "wrap", alignItems: "center" }}>
+      <div>
+        <div style={{ color: "#58a6ff", fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Flywheel Status</div>
+        <div style={{ color: "#e6edf3", fontSize: "15px", fontWeight: 700, marginTop: "2px" }}>{health.flywheel_health}</div>
+      </div>
+      <div>
+        <div style={{ color: "#58a6ff", fontSize: "11px", fontWeight: 600, textTransform: "uppercase" }}>Engineers</div>
+        <div style={{ color: "#e6edf3", fontSize: "15px", fontWeight: 700, marginTop: "2px" }}>{health.total_engineers_on_platform}</div>
+      </div>
+      {Object.entries(health.model_accuracy_tiers || {}).map(([model, tier]) => (
+        <div key={model}>
+          <div style={{ color: "#58a6ff", fontSize: "11px", fontWeight: 600, textTransform: "uppercase" }}>{model.replace(/_/g, " ")}</div>
+          <div style={{ color: tierColors[tier] || "#e6edf3", fontSize: "13px", fontWeight: 700, marginTop: "2px" }}>● {tier}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function JobsTab({ token, onUpgrade }) {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1214,7 +1546,7 @@ function JobsTab({ token, onUpgrade }) {
   );
 }
 
-const TABS = ["Jobs", "Onboarding", "Payroll", "Performance", "Compliance"];
+const TABS = ["Jobs", "Onboarding", "Payroll", "Performance", "Compliance", "Integrations", "Analytics"];
 
 export default function EmployerDashboard({ user, token, onLogout, onUpgrade }) {
   const [activeTab, setActiveTab] = useState("Jobs");
@@ -1241,11 +1573,15 @@ export default function EmployerDashboard({ user, token, onLogout, onUpgrade }) 
         ))}
       </div>
 
+      <FlywheelSection token={token} />
+
       {activeTab === "Jobs" && <JobsTab token={token} onUpgrade={onUpgrade} />}
       {activeTab === "Onboarding" && <OnboardingTab token={token} />}
       {activeTab === "Payroll" && <PayrollTab token={token} />}
       {activeTab === "Performance" && <PerformanceTab token={token} />}
       {activeTab === "Compliance" && <ComplianceTab token={token} />}
+      {activeTab === "Integrations" && <IntegrationsTab token={token} />}
+      {activeTab === "Analytics" && <AnalyticsTab token={token} />}
     </div>
   );
 }

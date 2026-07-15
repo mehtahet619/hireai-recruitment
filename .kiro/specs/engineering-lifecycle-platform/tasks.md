@@ -99,54 +99,54 @@ Incremental expansion of HireAI into a full engineering lifecycle platform. Each
 - [ ] 8. Compliance Module
   - [-] 8.1 Implement ComplianceRule and ComplianceAlert dataclasses with Valkey/memory storage in `backend/app/compliance_store.py`; implement evaluate_rules (evaluates trigger_condition DSL against work data), resolve_alert; pre-seed rule templates for US federal, UK, and India jurisdictions
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6_
-  - [~] 8.2 Write property test for compliance alert generated for every rule violation (Property 13)
+  - [ ] 8.2 Write property test for compliance alert generated for every rule violation (Property 13)
     - **Property 13: Compliance alert generated for every rule violation**
     - **Validates: Requirements 7.2**
-  - [~] 8.3 Add FastAPI routes: POST/GET `/api/employer/compliance/rules`, GET `/api/employer/compliance/alerts`, PATCH `/api/employer/compliance/alerts/{id}/resolve`; wire data privacy rules to initiate data review workflow on trigger
+  - [ ] 8.3 Add FastAPI routes: POST/GET `/api/employer/compliance/rules`, GET `/api/employer/compliance/alerts`, PATCH `/api/employer/compliance/alerts/{id}/resolve`; wire data privacy rules to initiate data review workflow on trigger
     - _Requirements: 7.1, 7.2, 7.3, 7.5, 7.6_
-  - [~] 8.4 Add a Compliance tab to the React EmployerDashboard showing open alerts (prominently surfaced), resolved alerts, and rule configuration
+  - [ ] 8.4 Add a Compliance tab to the React EmployerDashboard showing open alerts (prominently surfaced), resolved alerts, and rule configuration
     - _Requirements: 7.6_
 
 - [ ] 9. Integration Connectors
-  - [~] 9.1 Implement BaseConnector ABC and IntegrationConnector dataclass in `backend/app/integrations/base.py`; implement GitHubConnector, JiraConnector, SlackConnector, and HRISWebhookConnector in separate files under `backend/app/integrations/`
+  - [ ] 9.1 Implement BaseConnector ABC and IntegrationConnector dataclass in `backend/app/integrations/base.py`; implement GitHubConnector, JiraConnector, SlackConnector, and HRISWebhookConnector in separate files under `backend/app/integrations/`
     - Each connector implements validate_credentials, pull_events, normalize_event
     - Retry logic: 3 attempts with exponential back-off; mark as degraded on third failure
     - _Requirements: 9.1, 9.2, 9.3, 9.4_
-  - [~] 9.2 Write example-based tests for each connector's normalize_event using fixture payloads (GitHub push event, Jira issue resolved event, Slack channel message event, HRIS webhook payload)
+  - [ ] 9.2 Write example-based tests for each connector's normalize_event using fixture payloads (GitHub push event, Jira issue resolved event, Slack channel message event, HRIS webhook payload)
     - **Validates: Requirements 9.1, 9.3**
-  - [~] 9.3 Add FastAPI routes: POST `/api/employer/integrations`, GET `/api/employer/integrations`, POST `/api/employer/integrations/{id}/validate`, PATCH `/api/employer/integrations/{id}` (enable/disable); background task polls active connectors and calls Signal_Processor
+  - [ ] 9.3 Add FastAPI routes: POST `/api/employer/integrations`, GET `/api/employer/integrations`, POST `/api/employer/integrations/{id}/validate`, PATCH `/api/employer/integrations/{id}` (enable/disable); background task polls active connectors and calls Signal_Processor
     - _Requirements: 9.2, 9.3, 9.4, 9.5, 9.6_
-  - [~] 9.4 Add an Integrations tab to the React EmployerDashboard showing connector health (status, last sync, error count), connector configuration, and enable/disable controls
+  - [ ] 9.4 Add an Integrations tab to the React EmployerDashboard showing connector health (status, last sync, error count), connector configuration, and enable/disable controls
     - _Requirements: 9.5_
 
 - [ ] 10. Workforce Analytics Module
-  - [~] 10.1 Implement Analytics_Engine in `backend/app/analytics_engine.py` with functions: get_hiring_funnel, get_time_to_hire, get_onboarding_completion_rates, get_performance_distributions, get_attrition_risk_scores, get_team_composition, get_anomalies, get_benchmark_comparison; implement report export (CSV and JSON) with PII redaction
+  - [ ] 10.1 Implement Analytics_Engine in `backend/app/analytics_engine.py` with functions: get_hiring_funnel, get_time_to_hire, get_onboarding_completion_rates, get_performance_distributions, get_attrition_risk_scores, get_team_composition, get_anomalies, get_benchmark_comparison; implement report export (CSV and JSON) with PII redaction
     - Anomaly detection: flag metric values more than 2 standard deviations from the rolling mean
     - Benchmark comparison: aggregate anonymized employer metrics across the platform
     - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6_
-  - [~] 10.2 Write property test for analytics export PII redaction (Property 14)
+  - [ ] 10.2 Write property test for analytics export PII redaction (Property 14)
     - **Property 14: Analytics report redacts PII on export**
     - **Validates: Requirements 8.6**
-  - [~] 10.3 Add FastAPI routes: GET `/api/employer/analytics/{report_type}`, GET `/api/employer/analytics/{report_type}/export`, GET `/api/employer/analytics/anomalies`, GET `/api/employer/analytics/benchmarks`
+  - [ ] 10.3 Add FastAPI routes: GET `/api/employer/analytics/{report_type}`, GET `/api/employer/analytics/{report_type}/export`, GET `/api/employer/analytics/anomalies`, GET `/api/employer/analytics/benchmarks`
     - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6_
-  - [~] 10.4 Add an Analytics tab to the React EmployerDashboard with standard report views, custom dashboard configuration, anomaly alert panel, and export button
+  - [ ] 10.4 Add an Analytics tab to the React EmployerDashboard with standard report views, custom dashboard configuration, anomaly alert panel, and export button
     - _Requirements: 8.3, 8.4_
 
 - [ ] 11. Engineer Privacy Portal
-  - [~] 11.1 Add GET `/api/engineer/signals` (returns own Signals paginated by type and date), POST `/api/engineer/consent` (grant/update), DELETE `/api/engineer/consent` (revoke), POST `/api/engineer/erasure-request` FastAPI routes; implement erasure logic: erase_pii_linkage drops engineer_id → pseudonymous_id mapping so signals become unattributable
+  - [ ] 11.1 Add GET `/api/engineer/signals` (returns own Signals paginated by type and date), POST `/api/engineer/consent` (grant/update), DELETE `/api/engineer/consent` (revoke), POST `/api/engineer/erasure-request` FastAPI routes; implement erasure logic: erase_pii_linkage drops engineer_id → pseudonymous_id mapping so signals become unattributable
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.6_
-  - [~] 11.2 Write property test for data erasure leaving no recoverable PII linkage (Properties from Requirements 10.2 and 10.3 combined)
+  - [ ] 11.2 Write property test for data erasure leaving no recoverable PII linkage (Properties from Requirements 10.2 and 10.3 combined)
     - For any engineer_id, after erase_pii_linkage, querying by engineer_id returns zero signals AND total signal count in store is unchanged
     - **Validates: Requirements 10.2, 10.3**
-  - [~] 11.3 Add a minimal Engineer Privacy Portal view in the React frontend accessible via `/privacy` route, showing consent status, signal categories, and erasure request button
+  - [ ] 11.3 Add a minimal Engineer Privacy Portal view in the React frontend accessible via `/privacy` route, showing consent status, signal categories, and erasure request button
     - _Requirements: 10.1, 10.4_
 
 - [ ] 12. Flywheel Metrics and Admin Dashboard
-  - [~] 12.1 Implement Flywheel_Metrics aggregation in `backend/app/flywheel_metrics.py`: total Signal count, 30-day Signal count, active Consent_Records count, Evaluation_Model accuracy trend per type; detect milestone thresholds and write to audit log
+  - [ ] 12.1 Implement Flywheel_Metrics aggregation in `backend/app/flywheel_metrics.py`: total Signal count, 30-day Signal count, active Consent_Records count, Evaluation_Model accuracy trend per type; detect milestone thresholds and write to audit log
     - _Requirements: 11.1, 11.2, 11.4_
-  - [~] 12.2 Add FastAPI routes: GET `/api/admin/flywheel` (platform admin only), GET `/api/employer/platform-health` (anonymized, employer-visible summary)
+  - [ ] 12.2 Add FastAPI routes: GET `/api/admin/flywheel` (platform admin only), GET `/api/employer/platform-health` (anonymized, employer-visible summary)
     - _Requirements: 11.1, 11.3_
-  - [~] 12.3 Add a Flywheel / Platform Health section to the React EmployerDashboard showing model accuracy tier, platform participant count, and the employer's Flywheel contribution score
+  - [ ] 12.3 Add a Flywheel / Platform Health section to the React EmployerDashboard showing model accuracy tier, platform participant count, and the employer's Flywheel contribution score
     - _Requirements: 11.3, 11.4_
 
 - [ ] 13. Final checkpoint — full platform integration
