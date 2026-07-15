@@ -879,7 +879,18 @@ async def api_create_order(req: CreateOrderRequest,
     if not claims:
         raise HTTPException(status_code=401, detail="Unauthorized")
     if not settings.razorpay_key_id or not settings.razorpay_key_secret:
-        raise HTTPException(status_code=501, detail="Payment gateway not configured")
+        # No payment gateway — activate plan directly (dev/demo mode)
+        emp = activate_plan(claims["sub"], req.plan)
+        return {
+            "order_id": "demo_order",
+            "amount": PLAN_PRICES_PAISE[req.plan],
+            "currency": "INR",
+            "key_id": "",
+            "plan": req.plan,
+            "demo": True,
+            "message": f"{PLANS[req.plan]['name']} plan activated (demo mode — no payment required)",
+            "plan_expires_at": emp.plan_expires_at,
+        }
     try:
         import razorpay
         client = razorpay.Client(auth=(settings.razorpay_key_id, settings.razorpay_key_secret))
@@ -909,8 +920,17 @@ async def api_verify_payment(req: VerifyPaymentRequest,
     claims = get_current_employer(authorization)
     if not claims:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    if not settings.razorpay_key_secret:
-        raise HTTPException(status_code=501, detail="Payment gateway not configured")
+    if not settings.razorpay_key_secret or req.razorpay_order_id == "demo_order":
+        # Demo mode — no signature to verify, plan already activated in create-order
+        emp = get_employer(claims["sub"])
+        if not emp:
+            raise HTTPException(status_code=404, detail="Not found")
+        return {
+            "success": True,
+            "plan": emp.plan,
+            "plan_expires_at": emp.plan_expires_at,
+            "message": f"{PLANS.get(req.plan, {}).get('name', req.plan)} plan active (demo mode)",
+        }
     try:
         import razorpay
         client = razorpay.Client(auth=(settings.razorpay_key_id, settings.razorpay_key_secret))
@@ -940,10 +960,12 @@ async def api_get_plan(authorization: Annotated[str | None, Header()] = None):
     emp = get_employer(claims["sub"])
     if not emp:
         raise HTTPException(status_code=404, detail="Not found")
+    can_post, _ = employer_can_post_job(claims["sub"])
     return {
         "plan": emp.plan,
         "plan_expires_at": emp.plan_expires_at,
-        "can_post_jobs": emp.plan != "free",
+        "can_post_jobs": can_post,
+        "payment_configured": bool(settings.razorpay_key_id and settings.razorpay_key_secret),
     }
 
 
