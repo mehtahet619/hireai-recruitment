@@ -99,10 +99,20 @@ class BaseConnector(ABC):
 def save_connector(c: IntegrationConnector) -> None:
     _store_set(f"connector:{c.connector_id}", json.dumps(asdict(c)))
     _store_append_list(f"employer_connectors:{c.employer_id}", c.connector_id)
+    _store_append_list("connectors:all", c.connector_id)
+
 
 def get_connector(connector_id: str) -> IntegrationConnector | None:
     raw = _store_get(f"connector:{connector_id}")
     return IntegrationConnector(**json.loads(raw)) if raw else None
+
+
+def list_all_connectors() -> list[IntegrationConnector]:
+    return [c for cid in _store_get_list("connectors:all") if (c := get_connector(cid))]
+
+
+def list_active_connectors() -> list[IntegrationConnector]:
+    return [c for c in list_all_connectors() if c.status == "active"]
 
 def list_employer_connectors(employer_id: str) -> list[IntegrationConnector]:
     return [c for cid in _store_get_list(f"employer_connectors:{employer_id}")

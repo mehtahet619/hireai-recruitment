@@ -1,6 +1,8 @@
 ﻿from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Header
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Annotated, Any
+import asyncio
+
 from .config import get_settings
 from .schemas import (
     JDParseRequest,
@@ -1978,6 +1980,7 @@ from .integrations.base import (
     IntegrationConnector as IntConnector,
     save_connector, get_connector, list_employer_connectors, RawEvent,
 )
+from .integrations.base import list_active_connectors
 from .integrations.github_connector import GitHubConnector
 from .integrations.jira_connector import JiraConnector
 from .integrations.slack_connector import SlackConnector
@@ -1990,6 +1993,56 @@ _CONNECTOR_MAP = {
     "slack": SlackConnector,
     "hris_webhook": HRISWebhookConnector,
 }
+
+
+def _poll_active_connectors_once() -> None:
+    processor = Signal_Processor()
+    for connector in list_active_connectors():
+        cls = _CONNECTOR_MAP.get(connector.connector_type)
+        if not cls:
+            continue
+        instance = cls(connector)
+        try:
+            if connector.last_sync_at:
+                since = datetime.fromisoformat(connector.last_sync_at)
+            else:
+                since = datetime.now(timezone.utc) - timedelta(minutes=30)
+            events = instance.pull_with_retry(since)
+            for event in events:
+                normalized = instance.normalize_event(event)
+                if not normalized:
+                    continue
+                try:
+                    processor.normalize_signal(
+                        engineer_id=normalized["engineer_ref"],
+                        signal_type=SignalType(normalized["signal_type"]),
+                        raw_payload=normalized["payload"],
+                        source_system=normalized["source_system"],
+                        employer_id=normalized["employer_id"],
+                    )
+                except ConsentError:
+                    continue
+                except ValueError:
+                    continue
+            connector.status = "active"
+            save_connector(connector)
+        except Exception:
+            connector.status = "degraded"
+            save_connector(connector)
+
+
+async def _integration_poller_loop(interval_seconds: int = 30) -> None:
+    while True:
+        try:
+            await asyncio.to_thread(_poll_active_connectors_once)
+        except Exception:
+            pass
+        await asyncio.sleep(interval_seconds)
+
+
+@app.on_event("startup")
+async def _start_integration_poller() -> None:
+    asyncio.create_task(_integration_poller_loop())
 
 
 @app.post("/api/employer/integrations")

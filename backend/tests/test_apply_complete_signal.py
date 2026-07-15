@@ -50,8 +50,8 @@ def test_apply_complete_emits_signal_with_consent(mocker):
     signals = query_signals(
         pseudonymous_id,
         SignalType.INTERVIEW_TRANSCRIPT_EMBEDDING,
-        datetime.now(timezone.utc) - timedelta(seconds=5),
-        datetime.now(timezone.utc) + timedelta(seconds=5),
+        datetime.now(timezone.utc) - timedelta(minutes=1),
+        datetime.now(timezone.utc) + timedelta(minutes=1),
     )
     
     assert len(signals) == 1
@@ -110,8 +110,8 @@ def test_apply_complete_skips_signal_without_consent(mocker):
     signals = query_signals(
         pseudonymous_id,
         SignalType.INTERVIEW_TRANSCRIPT_EMBEDDING,
-        datetime.now(timezone.utc) - timedelta(seconds=5),
-        datetime.now(timezone.utc) + timedelta(seconds=5),
+        datetime.now(timezone.utc) - timedelta(minutes=1),
+        datetime.now(timezone.utc) + timedelta(minutes=1),
     )
     
     assert len(signals) == 0

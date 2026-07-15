@@ -105,8 +105,8 @@ export const getRunPayslips = (runId, token) => get(`/api/employer/payroll/runs/
 // Integrations
 export const listIntegrations = (token) => get("/api/employer/integrations", token);
 export const createIntegration = (data, token) => post("/api/employer/integrations", data, token);
-export const validateIntegration = (connectorId, token) => post("/api/employer/integrations/${connectorId}/validate", {}, token);
-export const updateIntegration = (connectorId, data, token) => patch("/api/employer/integrations/${connectorId}", data, token);
+export const validateIntegration = (connectorId, token) => post(`/api/employer/integrations/${connectorId}/validate`, {}, token);
+export const updateIntegration = (connectorId, data, token) => patch(`/api/employer/integrations/${connectorId}`, data, token);
 
 // Analytics
 export const getAnalyticsReport = (reportType, token) => get(`/api/employer/analytics/${reportType}`, token);
