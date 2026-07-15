@@ -21,16 +21,23 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             BASE=${{ github.event.pull_request.base.sha }}
             HEAD=${{ github.event.pull_request.head.sha }}
+            COMMITS=$(git log ${BASE}..${HEAD} --format="%H")
           else
             BASE=${{ github.event.before }}
             HEAD=${{ github.sha }}
-          fi
 
-          # Fall back to last commit if before is all-zeros (first push)
-          if [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
-            COMMITS=$(git log -1 --format="%H")
-          else
-            COMMITS=$(git log ${BASE}..${HEAD} --format="%H")
+            # Fall back to origin/main..HEAD when:
+            # - first push (all-zeros before)
+            # - force-push where before SHA no longer exists in history
+            if [ "$BASE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
+              COMMITS=$(git log origin/main..${HEAD} --format="%H")
+              # If branch is main itself or no divergence found, just check last commit
+              if [ -z "$COMMITS" ]; then
+                COMMITS=$(git log -1 --format="%H")
+              fi
+            else
+              COMMITS=$(git log ${BASE}..${HEAD} --format="%H")
+            fi
           fi
 
           FAILED=0
