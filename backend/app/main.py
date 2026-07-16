@@ -135,6 +135,32 @@ settings = get_settings()
 
 app = FastAPI(title="AI Recruiter API", version="1.0.0")
 
+
+def _resolve_employer(claims: dict):
+    """
+    Return the Employer for the given JWT claims.
+    If the record is missing (e.g. server restart wiped in-memory store),
+    auto-recreate it from the JWT claims so the session stays valid.
+    Raises HTTPException 401 if recovery fails.
+    """
+    emp = get_employer(claims["sub"])
+    if emp:
+        return emp
+    # Attempt recovery: recreate from JWT payload
+    import secrets as _secrets
+    try:
+        emp = create_employer(
+            claims["email"],
+            _secrets.token_hex(32),
+            claims.get("company", "My Company"),
+        )
+    except ValueError:
+        # Already exists under the email key — fetch it
+        emp = get_employer_by_email(claims["email"])
+    if not emp:
+        raise HTTPException(status_code=401, detail="Session expired — please log in again")
+    return emp
+
 # In-memory promotion alert store: key = "promotion_alert:{cycle_id}:{engineer_id}"
 # value = JSON string with engineer_id, score, cycle_id
 _promotion_alerts: dict[str, str] = {}
@@ -487,9 +513,7 @@ async def api_employer_me(authorization: Annotated[str | None, Header()] = None)
     claims = get_current_employer(authorization)
     if not claims:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    emp = get_employer(claims["sub"])
-    if not emp:
-        raise HTTPException(status_code=404, detail="Employer not found")
+    emp = _resolve_employer(claims)
     return {"employer_id": emp.employer_id, "email": emp.email, "company_name": emp.company_name}
 
 
@@ -531,12 +555,13 @@ async def api_create_job(req: JobCreateRequest,
     claims = get_current_employer(authorization)
     if not claims:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    allowed, reason = employer_can_post_job(claims["sub"])
+    emp = _resolve_employer(claims)
+    allowed, reason = employer_can_post_job(emp.employer_id)
     if not allowed:
         raise HTTPException(status_code=403, detail=reason)
     try:
         job = create_job(
-            employer_id=claims["sub"],
+            employer_id=emp.employer_id,
             title=req.title,
             description=req.description,
             location=req.location,
@@ -553,7 +578,8 @@ async def api_employer_list_jobs(authorization: Annotated[str | None, Header()] 
     claims = get_current_employer(authorization)
     if not claims:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    jobs = list_employer_jobs(claims["sub"])
+    emp = _resolve_employer(claims)
+    jobs = list_employer_jobs(emp.employer_id)
     return [{"job_id": j.job_id, "title": j.title, "location": j.location,
              "employment_type": j.employment_type, "is_active": j.is_active,
              "application_count": j.application_count, "created_at": j.created_at}
