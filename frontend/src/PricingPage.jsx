@@ -69,6 +69,16 @@ export default function PricingPage({ token, user, onUpgraded, onLoginRequired }
       }
       const order = await res.json();
 
+      // Demo mode — no Razorpay keys configured, plan activated directly
+      if (order.demo) {
+        setSuccess(order.message);
+        setCurrentPlan({ plan: plan.id, plan_expires_at: order.plan_expires_at });
+        onUpgraded && onUpgraded(plan.id);
+        setLoading(false);
+        setPaying(null);
+        return;
+      }
+
       const options = {
         key: order.key_id || RAZORPAY_KEY_ID,
         amount: order.amount,
@@ -131,16 +141,40 @@ export default function PricingPage({ token, user, onUpgraded, onLoginRequired }
       {error && <p className="error" style={{ textAlign: "center" }}>{error}</p>}
       {success && <p className="notice success" style={{ textAlign: "center", marginBottom: "16px" }}>{success}</p>}
 
-      {currentPlan && activePlan !== "free" && (
+      {currentPlan && (
         <div className="current-plan-banner">
           Active plan: <strong>{activePlan.charAt(0).toUpperCase() + activePlan.slice(1)}</strong>
-          {currentPlan.plan_expires_at && (
+          {activePlan === "free" && <span className="muted"> · 1 free job posting included</span>}
+          {currentPlan.plan_expires_at && activePlan !== "free" && (
             <span className="muted"> · renews {new Date(currentPlan.plan_expires_at).toLocaleDateString("en-IN")}</span>
           )}
         </div>
       )}
 
       <div className="pricing-grid">
+        {/* Free for employers */}
+        <div className="pricing-card">
+          <div className="pricing-card-header">
+            <h3>Free</h3>
+            <div className="price">
+              <span className="price-amount">Free</span>
+            </div>
+          </div>
+          <ul className="feature-list">
+            <li>✓ 1 active job posting</li>
+            <li>✓ AI-powered interviews</li>
+            <li>✓ Candidate scoring</li>
+            <li>✗ Analytics</li>
+            <li>✗ Priority support</li>
+          </ul>
+          <div className="pricing-cta">
+            {activePlan === "free"
+              ? <button disabled className="btn-secondary">Current plan</button>
+              : <span className="tag tag-green">Sign up free</span>
+            }
+          </div>
+        </div>
+
         {/* Free for candidates */}
         <div className="pricing-card">
           <div className="pricing-card-header">

@@ -10,5 +10,8 @@ reviews/
 node_modules/
 frontend/dist/
 
+# Supabase
+supabase/.temp/
+
 # OS
 .DS_Store
