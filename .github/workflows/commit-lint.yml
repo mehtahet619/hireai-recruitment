@@ -22,7 +22,8 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             MERGE_BASE=$(git merge-base origin/main ${{ github.event.pull_request.head.sha }})
-            COMMITS=$(git log ${MERGE_BASE}..${{ github.event.pull_request.head.sha }} --format="%H")
+            # --no-merges skips auto-generated merge commits (Merge pull request #N, Merge branch ...)
+            COMMITS=$(git log ${MERGE_BASE}..${{ github.event.pull_request.head.sha }} --no-merges --format="%H")
           else
             BASE=${{ github.event.before }}
             HEAD=${{ github.sha }}
@@ -30,12 +31,12 @@ jobs:
             if [ "$BASE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
               MERGE_BASE=$(git merge-base origin/main ${HEAD} 2>/dev/null || echo "")
               if [ -n "$MERGE_BASE" ]; then
-                COMMITS=$(git log ${MERGE_BASE}..${HEAD} --format="%H")
+                COMMITS=$(git log ${MERGE_BASE}..${HEAD} --no-merges --format="%H")
               else
-                COMMITS=$(git log -1 --format="%H")
+                COMMITS=$(git log -1 --no-merges --format="%H")
               fi
             else
-              COMMITS=$(git log ${BASE}..${HEAD} --format="%H")
+              COMMITS=$(git log ${BASE}..${HEAD} --no-merges --format="%H")
             fi
           fi
 
