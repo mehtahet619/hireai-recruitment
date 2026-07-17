@@ -10,7 +10,17 @@ async function req(method, path, body, token) {
   });
   if (!res.ok) {
     let detail = res.statusText;
-    try { detail = (await res.json()).detail || detail; } catch (_) {}
+    try {
+      const data = await res.json();
+      if (data.detail) {
+        // FastAPI validation errors return detail as an array of objects
+        detail = typeof data.detail === "string"
+          ? data.detail
+          : Array.isArray(data.detail)
+            ? data.detail.map(d => d.msg || JSON.stringify(d)).join(", ")
+            : JSON.stringify(data.detail);
+      }
+    } catch (_) {}
     throw new Error(detail);
   }
   return res.json();
