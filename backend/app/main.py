@@ -140,26 +140,29 @@ def _resolve_employer(claims: dict):
     """
     Return the Employer for the given JWT claims.
     If the record is missing (e.g. server restart wiped in-memory store),
-    auto-recreate it from the JWT claims so the session stays valid.
+    restore it using the original employer_id from the JWT so all
+    ownership checks remain consistent.
     Raises HTTPException 401 if recovery fails.
     """
     emp = get_employer(claims["sub"])
     if emp:
         return emp
-    # Attempt recovery: recreate from JWT payload
+
+    # Restore the employer record using the original ID from the JWT
     import secrets as _secrets
-    try:
-        emp = create_employer(
-            claims["email"],
-            _secrets.token_hex(32),
-            claims.get("company", "My Company"),
-        )
-    except ValueError:
-        # Already exists under the email key — fetch it
-        emp = get_employer_by_email(claims["email"])
-    if not emp:
-        raise HTTPException(status_code=401, detail="Session expired — please log in again")
-    return emp
+    from .employer_store import Employer, _save_employer, _emp_email_key
+    from dataclasses import asdict
+    import json
+
+    restored = Employer(
+        employer_id=claims["sub"],          # preserve original ID
+        email=claims["email"].lower(),
+        password_hash=_secrets.token_hex(32),  # random — Google/JWT auth only
+        company_name=claims.get("company", "My Company"),
+    )
+    _save_employer(restored)
+
+    return restored
 
 # In-memory promotion alert store: key = "promotion_alert:{cycle_id}:{engineer_id}"
 # value = JSON string with engineer_id, score, cycle_id
@@ -983,10 +986,8 @@ async def api_get_plan(authorization: Annotated[str | None, Header()] = None):
     claims = get_current_employer(authorization)
     if not claims:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    emp = get_employer(claims["sub"])
-    if not emp:
-        raise HTTPException(status_code=404, detail="Not found")
-    can_post, _ = employer_can_post_job(claims["sub"])
+    emp = _resolve_employer(claims)
+    can_post, _ = employer_can_post_job(emp.employer_id)
     return {
         "plan": emp.plan,
         "plan_expires_at": emp.plan_expires_at,
