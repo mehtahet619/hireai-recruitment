@@ -15,57 +15,62 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Fetch main for merge-base calculation
+        run: git fetch origin main --no-tags
+
       - name: Validate commit messages
         run: |
-          # Get all commits in this push / PR
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE=${{ github.event.pull_request.base.sha }}
-            HEAD=${{ github.event.pull_request.head.sha }}
-            COMMITS=$(git log ${BASE}..${HEAD} --format="%H")
+            MERGE_BASE=$(git merge-base origin/main ${{ github.event.pull_request.head.sha }})
+            # --no-merges skips auto-generated merge commits (Merge pull request #N, Merge branch ...)
+            COMMITS=$(git log ${MERGE_BASE}..${{ github.event.pull_request.head.sha }} --no-merges --format="%H")
           else
             BASE=${{ github.event.before }}
             HEAD=${{ github.sha }}
 
-            # Fall back to origin/main..HEAD when:
-            # - first push (all-zeros before)
-            # - force-push where before SHA no longer exists in history
             if [ "$BASE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
-              COMMITS=$(git log origin/main..${HEAD} --format="%H")
-              # If branch is main itself or no divergence found, just check last commit
-              if [ -z "$COMMITS" ]; then
-                COMMITS=$(git log -1 --format="%H")
+              MERGE_BASE=$(git merge-base origin/main ${HEAD} 2>/dev/null || echo "")
+              if [ -n "$MERGE_BASE" ]; then
+                COMMITS=$(git log ${MERGE_BASE}..${HEAD} --no-merges --format="%H")
+              else
+                COMMITS=$(git log -1 --no-merges --format="%H")
               fi
             else
-              COMMITS=$(git log ${BASE}..${HEAD} --format="%H")
+              COMMITS=$(git log ${BASE}..${HEAD} --no-merges --format="%H")
             fi
+          fi
+
+          if [ -z "$COMMITS" ]; then
+            echo "No new commits to lint."
+            exit 0
           fi
 
           FAILED=0
           for COMMIT in $COMMITS; do
             MSG=$(git log -1 --format="%s" $COMMIT)
             echo "Checking: $MSG"
+            COMMIT_FAILED=0
 
-            # Rule 1: must start with [FIX], [IMP], or [ADD]
             if ! echo "$MSG" | grep -qE '^\[(FIX|IMP|ADD)\]'; then
               echo "  ❌ Must start with [FIX], [IMP], or [ADD]"
-              FAILED=1
+              COMMIT_FAILED=1
             fi
 
-            # Rule 2: must have a module name after the tag — [TAG] module: title
             if ! echo "$MSG" | grep -qE '^\[(FIX|IMP|ADD)\] \S+'; then
-              echo "  ❌ Must include a module name after the tag e.g. [ADD] employer_auth: ..."
-              FAILED=1
+              echo "  ❌ Must include a module name e.g. [ADD] employer_auth: ..."
+              COMMIT_FAILED=1
             fi
 
-            # Rule 3: title must be 80 chars or fewer
             LENGTH=${#MSG}
             if [ $LENGTH -gt 80 ]; then
               echo "  ❌ Title is ${LENGTH} chars — max is 80"
-              FAILED=1
+              COMMIT_FAILED=1
             fi
 
-            if [ $FAILED -eq 0 ]; then
+            if [ $COMMIT_FAILED -eq 0 ]; then
               echo "  ✅ OK"
+            else
+              FAILED=1
             fi
           done
 
