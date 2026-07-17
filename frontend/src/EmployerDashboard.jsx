@@ -20,7 +20,7 @@ function NewJobForm({ token, onCreated }) {
       setForm({ title: "", description: "", location: "Remote", employment_type: "full-time" });
       onCreated();
     } catch (e) {
-      setError(e.message);
+      setError(e?.message || String(e) || "Failed to post job. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -29,7 +29,7 @@ function NewJobForm({ token, onCreated }) {
   return (
     <form className="new-job-form card" onSubmit={handleSubmit}>
       <h3>Post a new opening</h3>
-      {error && <p className="error">{error}</p>}
+      {error && <p className="error">{String(error)}</p>}
       <label>Job title</label>
       <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
         placeholder="Senior Python Engineer" required />
@@ -1555,8 +1555,8 @@ export default function EmployerDashboard({ user, token, onLogout, onUpgrade }) 
     <div className="employer-dashboard">
       <div className="dashboard-header">
         <div>
-          <h2>{user.company_name}</h2>
-          <span className="muted">{user.email}</span>
+          <h2>{typeof user.company_name === "string" ? user.company_name : "Dashboard"}</h2>
+          <span className="muted">{typeof user.email === "string" ? user.email : ""}</span>
         </div>
         <button className="btn-ghost" onClick={onLogout}>Logout</button>
       </div>
