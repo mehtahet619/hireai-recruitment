@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { getHealth } from "./api.js";
 import { useAuth } from "./useAuth.js";
+import LandingPage from "./LandingPage.jsx";
 import JobBoard from "./JobBoard.jsx";
 import ApplyPage from "./ApplyPage.jsx";
 import EmployerAuth from "./EmployerAuth.jsx";
@@ -11,7 +12,7 @@ import PrivacyPortal from "./PrivacyPortal.jsx";
 export default function App() {
   const { token, user, login, logout, isLoggedIn } = useAuth();
   const [health, setHealth] = useState(null);
-  const [view, setView] = useState("jobs"); // jobs | apply | pricing | employer-auth | employer-dash | privacy
+  const [view, setView] = useState("landing"); // landing | jobs | apply | pricing | employer-auth | employer-dash | privacy
   const [applyJobId, setApplyJobId] = useState(null);
 
   useEffect(() => {
@@ -21,6 +22,18 @@ export default function App() {
   useEffect(() => {
     if (isLoggedIn) setView("employer-dash");
   }, [isLoggedIn]);
+
+  function handleCandidateClick() {
+    setView("jobs");
+  }
+
+  function handleRecruiterClick() {
+    setView("employer-auth");
+  }
+
+  function handlePricingClick() {
+    setView("pricing");
+  }
 
   function handleApply(jobId) {
     setApplyJobId(jobId);
@@ -40,15 +53,16 @@ export default function App() {
   return (
     <div className="app">
       <header>
-        <div className="header-brand" onClick={() => setView("jobs")} style={{ cursor: "pointer" }}>
+        <div className="header-brand" onClick={() => setView("landing")} style={{ cursor: "pointer" }}>
           <h1>HireAI</h1>
           {health && (
             <span className="tag">{health.mock ? "MOCK mode" : `AI: ${health.model}`}</span>
           )}
         </div>
         <nav className="header-nav">
-          {view !== "employer-auth" && view !== "employer-dash" && (
+          {view !== "landing" && view !== "employer-auth" && view !== "employer-dash" && (
             <>
+              <button className="btn-ghost" onClick={() => setView("landing")}>Home</button>
               <button className={view === "jobs" ? "nav-active" : "btn-ghost"}
                 onClick={() => setView("jobs")}>Jobs</button>
               <button className={view === "pricing" ? "nav-active" : "btn-ghost"}
@@ -59,6 +73,13 @@ export default function App() {
                 onClick={() => setView("employer-auth")}>For employers</button>
             </>
           )}
+          {view === "landing" && (
+            <>
+              <button className="btn-ghost" onClick={() => setView("jobs")}>Jobs</button>
+              <button className="btn-ghost" onClick={() => setView("pricing")}>Pricing</button>
+              <button className="btn-secondary" onClick={() => setView("employer-auth")}>For Employers</button>
+            </>
+          )}
           {view === "employer-dash" && (
             <>
               <button className="btn-ghost" onClick={() => setView("pricing")}>Pricing</button>
@@ -66,18 +87,25 @@ export default function App() {
             </>
           )}
           {view === "employer-auth" && (
-            <button className="btn-ghost" onClick={() => setView("jobs")}>← Back to jobs</button>
+            <button className="btn-ghost" onClick={() => setView("landing")}>ΓåÉ Back home</button>
           )}
           {view === "pricing" && !isLoggedIn && (
-            <button className="btn-ghost" onClick={() => setView("jobs")}>← Back</button>
+            <button className="btn-ghost" onClick={() => setView("landing")}>ΓåÉ Back</button>
           )}
           {view === "pricing" && isLoggedIn && (
-            <button className="btn-ghost" onClick={() => setView("employer-dash")}>← Dashboard</button>
+            <button className="btn-ghost" onClick={() => setView("employer-dash")}>ΓåÉ Dashboard</button>
           )}
         </nav>
       </header>
 
       <main>
+        {view === "landing" && (
+          <LandingPage
+            onCandidateClick={handleCandidateClick}
+            onRecruiterClick={handleRecruiterClick}
+            onPricingClick={handlePricingClick}
+          />
+        )}
         {view === "jobs" && <JobBoard onApply={handleApply} />}
         {view === "apply" && applyJobId && (
           <ApplyPage jobId={applyJobId} onBack={() => setView("jobs")} />
@@ -102,7 +130,7 @@ export default function App() {
           />
         )}
         {view === "privacy" && (
-          <PrivacyPortal onBack={() => setView("jobs")} />
+          <PrivacyPortal onBack={() => setView("landing")} />
         )}
       </main>
     </div>
