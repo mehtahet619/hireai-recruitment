@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { getHealth } from "./api.js";
 import { useAuth } from "./useAuth.js";
 import LandingPage from "./LandingPage.jsx";
@@ -87,13 +87,13 @@ export default function App() {
             </>
           )}
           {view === "employer-auth" && (
-            <button className="btn-ghost" onClick={() => setView("landing")}>ΓåÉ Back home</button>
+            <button className="btn-ghost" onClick={() => setView("landing")}>&larr; Back home</button>
           )}
           {view === "pricing" && !isLoggedIn && (
-            <button className="btn-ghost" onClick={() => setView("landing")}>ΓåÉ Back</button>
+            <button className="btn-ghost" onClick={() => setView("landing")}>&larr; Back</button>
           )}
           {view === "pricing" && isLoggedIn && (
-            <button className="btn-ghost" onClick={() => setView("employer-dash")}>ΓåÉ Dashboard</button>
+            <button className="btn-ghost" onClick={() => setView("employer-dash")}>&larr; Dashboard</button>
           )}
         </nav>
       </header>
