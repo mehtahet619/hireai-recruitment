@@ -49,9 +49,9 @@ function NewJobForm({ token, onCreated }) {
       </div>
       <label>Job description</label>
       <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
-        rows={6} placeholder="Describe the role, responsibilities, and requirements…" required />
+        rows={6} placeholder="Describe the role, responsibilities, and requirements&hellip;" required />
       <button type="submit" disabled={loading}>
-        {loading ? "Posting…" : "Post opening"}
+        {loading ? "Posting&hellip;" : "Post opening"}
       </button>
     </form>
   );
@@ -65,13 +65,13 @@ function ApplicantDetail({ appId, token, onBack }) {
     getApplicant(appId, token).then(setApp).finally(() => setLoading(false));
   }, [appId]);
 
-  if (loading) return <div className="muted">Loading…</div>;
+  if (loading) return <div className="muted">Loading&hellip;</div>;
   if (!app) return <div className="error">Not found</div>;
 
   const score = app.score;
   return (
     <div className="applicant-detail">
-      <button className="btn-ghost back-btn" onClick={onBack}>← Back to applicants</button>
+      <button className="btn-ghost back-btn" onClick={onBack}>&larr; Back to applicants</button>
       <div className="applicant-header">
         <h3>{app.candidate_name}</h3>
         <span className="muted">{app.candidate_email}</span>
@@ -131,10 +131,10 @@ function ApplicantsList({ job, token, onBack }) {
 
   return (
     <div className="applicants-list">
-      <button className="btn-ghost back-btn" onClick={onBack}>← Back to jobs</button>
-      <h3>{job.title} — applicants</h3>
+      <button className="btn-ghost back-btn" onClick={onBack}>&larr; Back to jobs</button>
+      <h3>{job.title} &mdash; applicants</h3>
       {loading ? (
-        <div className="muted">Loading…</div>
+        <div className="muted">Loading&hellip;</div>
       ) : applicants?.length === 0 ? (
         <div className="empty-state muted">No applicants yet.</div>
       ) : (
@@ -228,7 +228,7 @@ function OnboardingTab({ token }) {
     }
   }
 
-  if (loading) return <div className="muted">Loading onboarding plans…</div>;
+  if (loading) return <div className="muted">Loading onboarding plans&hellip;</div>;
   if (error) return <div className="error">{error}</div>;
   if (!plans || plans.length === 0) {
     return (
@@ -273,14 +273,14 @@ function OnboardingTab({ token }) {
                   </div>
                   <div style={{ marginTop: "8px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
                     <span className="tag tag-green">
-                      ✓ {completedTasks} completed
+                      &#10003; {completedTasks} completed
                     </span>
                     <span className="tag">
-                      ⏳ {pendingTasks.length} pending
+                      &#9203; {pendingTasks.length} pending
                     </span>
                     {overdueTasks.length > 0 && (
                       <span className="tag" style={{ background: "#ffebe9", color: "#d1242f" }}>
-                        ⚠ {overdueTasks.length} overdue
+                        &#9888; {overdueTasks.length} overdue
                       </span>
                     )}
                   </div>
@@ -313,7 +313,7 @@ function OnboardingTab({ token }) {
                     {completedTasks}/{totalTasks} tasks
                   </div>
                   <div className="muted" style={{ marginTop: "6px", fontSize: "12px" }}>
-                    {isExpanded ? "▲ hide" : "▼ show"} tasks
+                    {isExpanded ? "&#9650; hide" : "&#9660; show"} tasks
                   </div>
                 </div>
               </div>
@@ -350,11 +350,11 @@ function OnboardingTab({ token }) {
                                   </div>
                                 )}
                               </td>
-                              <td className="muted">{task.assigned_role || "—"}</td>
+                              <td className="muted">{task.assigned_role || "&mdash;"}</td>
                               <td className="muted">Day {task.due_offset_days}</td>
                               <td>
                                 {done ? (
-                                  <span className="tag tag-green">✓ Done</span>
+                                  <span className="tag tag-green">&#10003; Done</span>
                                 ) : overdue ? (
                                   <span
                                     className="tag"
@@ -374,7 +374,7 @@ function OnboardingTab({ token }) {
                                     disabled={isCompleting}
                                     onClick={() => handleCompleteTask(plan.plan_id, task.task_id)}
                                   >
-                                    {isCompleting ? "…" : "Mark done"}
+                                    {isCompleting ? "&hellip;" : "Mark done"}
                                   </button>
                                 )}
                               </td>
@@ -481,7 +481,7 @@ function PayrollTab({ token }) {
     }
   }
 
-  if (loading) return <div className="muted">Loading payroll data…</div>;
+  if (loading) return <div className="muted">Loading payroll data&hellip;</div>;
 
   return (
     <div>
@@ -533,7 +533,7 @@ function PayrollTab({ token }) {
           <textarea rows={2} value={compForm.deductions}
             placeholder='[{"name":"Tax","type":"tax","pct":20}]'
             onChange={e => setCompForm({ ...compForm, deductions: e.target.value })} />
-          <button type="submit" disabled={savingComp}>{savingComp ? "Saving…" : "Save"}</button>
+          <button type="submit" disabled={savingComp}>{savingComp ? "Saving&hellip;" : "Save"}</button>
         </form>
       )}
 
@@ -570,7 +570,7 @@ function PayrollTab({ token }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
         <h3 style={{ margin: 0 }}>Payroll Runs</h3>
         <button onClick={handleInitiateRun} disabled={runLoading}>
-          {runLoading ? "Running…" : "▶ Run Payroll"}
+          {runLoading ? "Running&hellip;" : "&#9654; Run Payroll"}
         </button>
       </div>
 
@@ -617,7 +617,7 @@ function PayrollTab({ token }) {
                           <td style={{ padding: "6px 10px", textAlign: "right" }}>{ps.gross_pay?.toFixed(2)}</td>
                           <td style={{ padding: "6px 10px", textAlign: "right" }}>{ps.net_pay?.toFixed(2)}</td>
                           <td style={{ padding: "6px 10px" }}>{ps.currency}</td>
-                          <td style={{ padding: "6px 10px" }} className="muted">{ps.period_start} → {ps.period_end}</td>
+                          <td style={{ padding: "6px 10px" }} className="muted">{ps.period_start} &rarr; {ps.period_end}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -721,7 +721,7 @@ function AnalyticsTab({ token }) {
       {/* Anomaly alert panel */}
       {anomalies.length > 0 && (
         <div style={{ background: "#fff8c5", border: "1px solid #d4a72c", borderRadius: "8px", padding: "10px 14px", marginBottom: "1rem" }}>
-          <strong>⚠ {anomalies.length} anomaly alert{anomalies.length !== 1 ? "s" : ""} detected</strong>
+          <strong>&#9888; {anomalies.length} anomaly alert{anomalies.length !== 1 ? "s" : ""} detected</strong>
           {anomalies.map((a, i) => (
             <div key={i} className="muted" style={{ fontSize: "12px", marginTop: "4px" }}>{a.message}</div>
           ))}
@@ -742,13 +742,13 @@ function AnalyticsTab({ token }) {
 
       {/* Export buttons */}
       <div style={{ display: "flex", gap: "8px", marginBottom: "1rem" }}>
-        <button className="btn-ghost" style={{ fontSize: "12px" }} onClick={() => handleExport("json")}>↓ JSON</button>
-        <button className="btn-ghost" style={{ fontSize: "12px" }} onClick={() => handleExport("csv")}>↓ CSV</button>
+        <button className="btn-ghost" style={{ fontSize: "12px" }} onClick={() => handleExport("json")}>&#8595; JSON</button>
+        <button className="btn-ghost" style={{ fontSize: "12px" }} onClick={() => handleExport("csv")}>&#8595; CSV</button>
       </div>
 
       {/* Report data */}
       {loading ? (
-        <div className="muted">Loading report…</div>
+        <div className="muted">Loading report&hellip;</div>
       ) : reportData ? (
         <div style={{ display: "flex", flexWrap: "wrap", gap: "12px" }}>
           {Object.entries(reportData).map(([k, v]) => renderMetric(k, v))}
@@ -843,7 +843,7 @@ function IntegrationsTab({ token }) {
 
   const CONNECTOR_TYPES = ["github", "jira", "slack", "hris_webhook"];
 
-  if (loading) return <div className="muted">Loading integrations…</div>;
+  if (loading) return <div className="muted">Loading integrations&hellip;</div>;
 
   return (
     <div>
@@ -879,7 +879,7 @@ function IntegrationsTab({ token }) {
           {form.connector_type === "hris_webhook" && (
             <div><label>Webhook Secret</label><input type="password" value={form.webhook_secret} onChange={e => setForm({ ...form, webhook_secret: e.target.value })} /></div>
           )}
-          <button type="submit" disabled={saving}>{saving ? "Saving…" : "Add Connector"}</button>
+          <button type="submit" disabled={saving}>{saving ? "Saving&hellip;" : "Add Connector"}</button>
         </form>
       )}
 
@@ -894,7 +894,7 @@ function IntegrationsTab({ token }) {
                   <strong style={{ textTransform: "capitalize" }}>{c.connector_type.replace("_", " ")}</strong>
                   <div style={{ display: "flex", gap: "8px", marginTop: "6px", flexWrap: "wrap" }}>
                     <span className="tag" style={{ color: statusColor(c.status), fontWeight: 600 }}>
-                      ● {c.status}
+                      &#9679; {c.status}
                     </span>
                     {c.last_sync_at && (
                       <span className="muted" style={{ fontSize: "12px" }}>
@@ -912,12 +912,12 @@ function IntegrationsTab({ token }) {
                   <button className="btn-secondary" style={{ padding: "4px 10px", fontSize: "12px" }}
                     disabled={validating === c.connector_id}
                     onClick={() => handleValidate(c.connector_id)}>
-                    {validating === c.connector_id ? "…" : "Validate"}
+                    {validating === c.connector_id ? "&hellip;" : "Validate"}
                   </button>
                   <button className="btn-ghost" style={{ padding: "4px 10px", fontSize: "12px" }}
                     disabled={toggling === c.connector_id}
                     onClick={() => handleToggle(c)}>
-                    {toggling === c.connector_id ? "…" : c.status === "disabled" ? "Enable" : "Disable"}
+                    {toggling === c.connector_id ? "&hellip;" : c.status === "disabled" ? "Enable" : "Disable"}
                   </button>
                 </div>
               </div>
@@ -1025,7 +1025,7 @@ function ComplianceTab({ token }) {
   const openAlerts = alerts.filter(a => a.status === "open");
   const resolvedAlerts = alerts.filter(a => a.status === "resolved");
 
-  if (loading) return <div className="muted">Loading compliance data…</div>;
+  if (loading) return <div className="muted">Loading compliance data&hellip;</div>;
 
   return (
     <div>
@@ -1034,7 +1034,7 @@ function ComplianceTab({ token }) {
       {/* Open alerts — prominently surfaced */}
       {openAlerts.length > 0 && (
         <div style={{ background: "#ffebe9", border: "1px solid #ffcecb", borderRadius: "8px", padding: "12px 16px", marginBottom: "1.5rem" }}>
-          <strong style={{ color: "#d1242f" }}>⚠ {openAlerts.length} open compliance alert{openAlerts.length !== 1 ? "s" : ""} require attention</strong>
+          <strong style={{ color: "#d1242f" }}>&#9888; {openAlerts.length} open compliance alert{openAlerts.length !== 1 ? "s" : ""} require attention</strong>
         </div>
       )}
 
@@ -1056,12 +1056,12 @@ function ComplianceTab({ token }) {
                     {new Date(alert.created_at).toLocaleString()}
                   </span>
                   <div style={{ marginTop: "6px", fontSize: "13px" }}>{alert.recommended_action}</div>
-                  <div className="muted" style={{ fontSize: "11px", marginTop: "4px" }}>Engineer: {alert.pseudonymous_engineer_id.slice(0, 8)}…</div>
+                  <div className="muted" style={{ fontSize: "11px", marginTop: "4px" }}>Engineer: {alert.pseudonymous_engineer_id.slice(0, 8)}&hellip;</div>
                 </div>
                 <button className="btn-secondary" style={{ padding: "4px 10px", fontSize: "12px", flexShrink: 0 }}
                   disabled={resolving === alert.alert_id}
                   onClick={() => handleResolve(alert.alert_id)}>
-                  {resolving === alert.alert_id ? "…" : "Resolve"}
+                  {resolving === alert.alert_id ? "&hellip;" : "Resolve"}
                 </button>
               </div>
             </div>
@@ -1080,7 +1080,7 @@ function ComplianceTab({ token }) {
         <div style={{ display: "flex", gap: "8px" }}>
           <button className="btn-secondary" style={{ fontSize: "12px", padding: "4px 10px" }}
             disabled={seeding} onClick={handleSeedTemplates}>
-            {seeding ? "Seeding…" : "Seed Templates"}
+            {seeding ? "Seeding&hellip;" : "Seed Templates"}
           </button>
           <button className="btn-secondary" onClick={() => setShowRuleForm(!showRuleForm)}>
             {showRuleForm ? "Cancel" : "+ Add Rule"}
@@ -1138,7 +1138,7 @@ function ComplianceTab({ token }) {
             </div>
             <div><label>Threshold</label><input type="number" value={ruleForm.threshold} onChange={e => setRuleForm({ ...ruleForm, threshold: e.target.value })} /></div>
           </div>
-          <button type="submit" disabled={savingRule}>{savingRule ? "Saving…" : "Save Rule"}</button>
+          <button type="submit" disabled={savingRule}>{savingRule ? "Saving&hellip;" : "Save Rule"}</button>
         </form>
       )}
 
@@ -1258,7 +1258,7 @@ function PerformanceTab({ token }) {
     return "#d1242f";
   }
 
-  if (loading) return <div className="muted">Loading performance cycles…</div>;
+  if (loading) return <div className="muted">Loading performance cycles&hellip;</div>;
 
   return (
     <div>
@@ -1293,7 +1293,7 @@ function PerformanceTab({ token }) {
                 onChange={e => setCycleForm({ ...cycleForm, end_date: e.target.value })} />
             </div>
           </div>
-          <button type="submit" disabled={savingCycle}>{savingCycle ? "Saving…" : "Create Cycle"}</button>
+          <button type="submit" disabled={savingCycle}>{savingCycle ? "Saving&hellip;" : "Create Cycle"}</button>
         </form>
       )}
 
@@ -1313,7 +1313,7 @@ function PerformanceTab({ token }) {
                         {cycle.status}
                       </span>
                       <span className="muted" style={{ fontSize: "12px" }}>
-                        {cycle.start_date} → {cycle.end_date}
+                        {cycle.start_date} &rarr; {cycle.end_date}
                       </span>
                       <span className="muted" style={{ fontSize: "12px" }}>
                         {cycle.participant_ids?.length || 0} participants
@@ -1325,11 +1325,11 @@ function PerformanceTab({ token }) {
                       <button className="btn-secondary" style={{ padding: "4px 10px", fontSize: "12px" }}
                         disabled={activating === cycle.cycle_id}
                         onClick={() => handleActivate(cycle.cycle_id)}>
-                        {activating === cycle.cycle_id ? "…" : "Activate"}
+                        {activating === cycle.cycle_id ? "&hellip;" : "Activate"}
                       </button>
                     )}
                     <span className="muted" style={{ fontSize: "11px", marginLeft: "8px" }}>
-                      {selectedCycle === cycle.cycle_id ? "▲ hide" : "▼ results"}
+                      {selectedCycle === cycle.cycle_id ? "&#9650; hide" : "&#9660; results"}
                     </span>
                   </div>
                 </div>
@@ -1338,7 +1338,7 @@ function PerformanceTab({ token }) {
               {selectedCycle === cycle.cycle_id && (
                 <div className="card" style={{ marginBottom: "8px", background: "#f6f8fa" }}>
                   {resultsLoading ? (
-                    <div className="muted">Loading results…</div>
+                    <div className="muted">Loading results&hellip;</div>
                   ) : !results ? (
                     <div className="muted">No results yet.</div>
                   ) : (
@@ -1367,7 +1367,7 @@ function PerformanceTab({ token }) {
                                     </span>
                                   </td>
                                   <td style={{ padding: "6px 10px" }} className="muted">
-                                    {r.submitted_at ? new Date(r.submitted_at).toLocaleDateString() : "—"}
+                                    {r.submitted_at ? new Date(r.submitted_at).toLocaleDateString() : "&mdash;"}
                                   </td>
                                 </tr>
                               ))}
@@ -1445,7 +1445,7 @@ function FlywheelSection({ token }) {
       {Object.entries(health.model_accuracy_tiers || {}).map(([model, tier]) => (
         <div key={model}>
           <div style={{ color: "#58a6ff", fontSize: "11px", fontWeight: 600, textTransform: "uppercase" }}>{model.replace(/_/g, " ")}</div>
-          <div style={{ color: tierColors[tier] || "#e6edf3", fontSize: "13px", fontWeight: 700, marginTop: "2px" }}>● {tier}</div>
+          <div style={{ color: tierColors[tier] || "#e6edf3", fontSize: "13px", fontWeight: 700, marginTop: "2px" }}>&#9679; {tier}</div>
         </div>
       ))}
     </div>
@@ -1505,14 +1505,14 @@ function JobsTab({ token, onUpgrade }) {
 
       {plan && plan.plan === "free" && (
         <div className="upgrade-banner">
-          <span>🔒 You're on the free plan — upgrade to post jobs</span>
+          <span>&#128274; You're on the free plan &mdash; upgrade to post jobs</span>
           <button onClick={() => onUpgrade && onUpgrade()}>View plans</button>
         </div>
       )}
 
       <h3>Your openings</h3>
       {loading ? (
-        <div className="muted">Loading…</div>
+        <div className="muted">Loading&hellip;</div>
       ) : jobs.length === 0 ? (
         <div className="empty-state muted">No job postings yet. Create your first opening above.</div>
       ) : (

@@ -13,7 +13,7 @@ export default function JobBoard({ onApply }) {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="page-center muted">Loading openings…</div>;
+  if (loading) return <div className="page-center muted">Loading openings&hellip;</div>;
   if (error) return <div className="page-center error">{error}</div>;
 
   return (

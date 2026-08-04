@@ -16,10 +16,10 @@ function bandColor(band) {
 }
 
 function CheckItem({ label, status, detail, error }) {
-  const icon = status === "ready" ? "✓" : status === "checking" ? "…" : status === "error" ? "✗" : "○";
+  const icon = status === "ready" ? "&#10003;" : status === "checking" ? "&hellip;" : status === "error" ? "&#10007;" : "&#9675;";
   return (
     <div className={`check-item ${status}`}>
-      <span className="check-icon">{icon}</span>
+      <span className="check-icon" dangerouslySetInnerHTML={{ __html: icon }}></span>
       <div>
         <strong>{label}</strong>
         {detail && <div className="muted">{detail}</div>}
