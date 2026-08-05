@@ -79,7 +79,7 @@ export default function EmployerAuth({ onAuth }) {
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             placeholder="••••••••" required minLength={6} />
           <button type="submit" disabled={loading}>
-            {loading ? "Please wait…" : mode === "login" ? "Login" : "Create account"}
+            {loading ? "Please wait&hellip;" : mode === "login" ? "Login" : "Create account"}
           </button>
         </form>
         <p className="auth-switch">

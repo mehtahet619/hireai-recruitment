@@ -84,7 +84,7 @@ export default function PricingPage({ token, user, onUpgraded, onLoginRequired }
         amount: order.amount,
         currency: order.currency,
         name: "HireAI",
-        description: `${plan.name} Plan — ₹${plan.price}/month`,
+        description: `${plan.name} Plan &mdash; &#8377;${plan.price}/month`,
         order_id: order.order_id,
         prefill: { email: user?.email || "" },
         theme: { color: "#1f6feb" },
@@ -161,11 +161,11 @@ export default function PricingPage({ token, user, onUpgraded, onLoginRequired }
             </div>
           </div>
           <ul className="feature-list">
-            <li>✓ 1 active job posting</li>
-            <li>✓ AI-powered interviews</li>
-            <li>✓ Candidate scoring</li>
-            <li>✗ Analytics</li>
-            <li>✗ Priority support</li>
+            <li>&#10003; 1 active job posting</li>
+            <li>&#10003; AI-powered interviews</li>
+            <li>&#10003; Candidate scoring</li>
+            <li>&#10007; Analytics</li>
+            <li>&#10007; Priority support</li>
           </ul>
           <div className="pricing-cta">
             {activePlan === "free"
@@ -184,11 +184,11 @@ export default function PricingPage({ token, user, onUpgraded, onLoginRequired }
             </div>
           </div>
           <ul className="feature-list">
-            <li>✓ Browse all job openings</li>
-            <li>✓ Apply with resume</li>
-            <li>✓ AI-powered interview</li>
-            <li>✓ Instant scoring &amp; feedback</li>
-            <li>✓ No account needed</li>
+            <li>&#10003; Browse all job openings</li>
+            <li>&#10003; Apply with resume</li>
+            <li>&#10003; AI-powered interview</li>
+            <li>&#10003; Instant scoring &amp; feedback</li>
+            <li>&#10003; No account needed</li>
           </ul>
           <div className="pricing-cta">
             <span className="tag tag-green">Always free</span>
@@ -207,7 +207,7 @@ export default function PricingPage({ token, user, onUpgraded, onLoginRequired }
                 <div className="price">
                   {plan.price ? (
                     <>
-                      <span className="price-currency">₹</span>
+                      <span className="price-currency">&#8377;</span>
                       <span className="price-amount">{plan.price}</span>
                       <span className="price-period">/month</span>
                     </>
@@ -217,7 +217,7 @@ export default function PricingPage({ token, user, onUpgraded, onLoginRequired }
                 </div>
               </div>
               <ul className="feature-list">
-                {plan.features.map((f, i) => <li key={i}>✓ {f}</li>)}
+                {plan.features.map((f, i) => <li key={i}>&#10003; {f}</li>)}
               </ul>
               <div className="pricing-cta">
                 {plan.id === "enterprise" ? (
@@ -228,7 +228,7 @@ export default function PricingPage({ token, user, onUpgraded, onLoginRequired }
                   <button disabled className="btn-secondary">Active</button>
                 ) : (
                   <button onClick={() => handleSubscribe(plan)} disabled={isBusy}>
-                    {isBusy ? "Processing…" : `Subscribe — ₹${plan.price}/mo`}
+                    {isBusy ? "Processing&hellip;" : `Subscribe &mdash; &#8377;${plan.price}/mo`}
                   </button>
                 )}
               </div>
@@ -239,7 +239,7 @@ export default function PricingPage({ token, user, onUpgraded, onLoginRequired }
 
       <p className="pricing-note muted">
         All plans renew monthly. Cancel anytime. Prices in Indian Rupees (INR).
-        Enterprise pricing is custom — contact us for a quote.
+        Enterprise pricing is custom &mdash; contact us for a quote.
       </p>
     </div>
   );

@@ -20,7 +20,7 @@ const SAMPLE_JD = `Senior Python Engineer
 - Strong experience with FastAPI and PostgreSQL
 - Nice to have: Docker, AWS`;
 
-const SAMPLE_RESUME = `Jane Doe — Software Engineer
+const SAMPLE_RESUME = `Jane Doe &mdash; Software Engineer
 6 years of Python experience building REST APIs with FastAPI.
 Extensive PostgreSQL and Docker work, deployed on AWS.
 Led a team of 3 engineers on a payments service.`;
@@ -39,10 +39,10 @@ function bandColor(band) {
 
 function CheckItem({ label, status, detail, error }) {
   const icon =
-    status === "ready" ? "✓" : status === "checking" ? "…" : status === "error" ? "✗" : "○";
+    status === "ready" ? "&#10003;" : status === "checking" ? "&hellip;" : status === "error" ? "&#10007;" : "&#9675;";
   return (
     <div className={`check-item ${status}`}>
-      <span className="check-icon">{icon}</span>
+      <span className="check-icon" dangerouslySetInnerHTML={{ __html: icon }}></span>
       <div>
         <strong>{label}</strong>
         {detail && <div className="muted">{detail}</div>}
@@ -383,7 +383,7 @@ export default function InterviewRoom({ health }) {
                   video.status === "ready"
                     ? "Webcam is active and enabled"
                     : video.status === "checking"
-                    ? "Requesting camera access…"
+                    ? "Requesting camera access&hellip;"
                     : "Camera must be enabled"
                 }
                 error={video.error}
@@ -395,7 +395,7 @@ export default function InterviewRoom({ health }) {
                   network.metrics
                     ? `${network.metrics.latencyMs}ms latency`
                     : network.status === "checking"
-                    ? "Testing connection…"
+                    ? "Testing connection&hellip;"
                     : "Stable connection required"
                 }
                 error={network.error}
@@ -407,7 +407,7 @@ export default function InterviewRoom({ health }) {
                   screenShareStatus === "ready"
                     ? "Screen sharing active (entire screen)"
                     : screenShareStatus === "checking"
-                    ? "Requesting screen share…"
+                    ? "Requesting screen share&hellip;"
                     : "Screen share must be enabled (entire screen only)"
                 }
                 error={screenShareError}
@@ -430,7 +430,7 @@ export default function InterviewRoom({ health }) {
               {video.status !== "ready" && (
                 <div className="video-placeholder">
                   {video.status === "checking"
-                    ? "Checking camera…"
+                    ? "Checking camera&hellip;"
                     : "Camera preview will appear here"}
                 </div>
               )}
@@ -456,7 +456,7 @@ export default function InterviewRoom({ health }) {
               onClick={handleStart}
               disabled={!preflightReady || loading}
             >
-              {loading ? "Starting interview…" : "Start interview with Aria"}
+              {loading ? "Starting interview&hellip;" : "Start interview with Aria"}
             </button>
           </div>
           {error && <p className="error">Error: {error}</p>}
@@ -468,7 +468,7 @@ export default function InterviewRoom({ health }) {
           {showTabWarning && (
             <div className="warning-overlay">
               <div className="warning-card">
-                <h3>⚠️ Warning</h3>
+                <h3>&#9888;&#65039; Warning</h3>
                 <p>
                   Tab change detected! Warning {tabChangeWarnings}/{MAX_TAB_WARNINGS}.
                 </p>
@@ -486,13 +486,13 @@ export default function InterviewRoom({ health }) {
               <div>
                 <strong>Aria</strong>
                 <div className="muted">
-                  {recording && "● Recording · "}
+                  {recording && "&#9679; Recording &middot; "}
                   {speaking
-                    ? "Speaking…"
+                    ? "Speaking&hellip;"
                     : listening
-                    ? "Listening…"
+                    ? "Listening&hellip;"
                     : loading
-                    ? "Thinking…"
+                    ? "Thinking&hellip;"
                     : stateLabel || "Interview in progress"}
                 </div>
               </div>
@@ -562,7 +562,7 @@ export default function InterviewRoom({ health }) {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSend(input)}
-                placeholder="Type your answer or use the mic…"
+                placeholder="Type your answer or use the mic&hellip;"
                 disabled={loading || speaking}
               />
               {supported.stt && (
@@ -572,7 +572,7 @@ export default function InterviewRoom({ health }) {
                   disabled={loading || speaking}
                   title="Speak your answer"
                 >
-                  {listening ? "●" : "🎤"}
+                  {listening ? "&#9679;" : "&#127908;"}
                 </button>
               )}
               <button
@@ -591,7 +591,7 @@ export default function InterviewRoom({ health }) {
               <h3>Interview complete</h3>
               {results.mock && (
                 <p className="notice">
-                  MOCK mode — set USE_MOCK_LLM empty in backend/.env and restart.
+                  MOCK mode &mdash; set USE_MOCK_LLM empty in backend/.env and restart.
                 </p>
               )}
               {reviewSaved?.saved && (

@@ -123,7 +123,7 @@ export default function PrivacyPortal({ onBack }) {
 
   return (
     <div style={{ maxWidth: "640px", margin: "0 auto", padding: "2rem 1rem" }}>
-      <button className="btn-ghost" onClick={onBack} style={{ marginBottom: "1rem" }}>← Back</button>
+      <button className="btn-ghost" onClick={onBack} style={{ marginBottom: "1rem" }}>&larr; Back</button>
 
       <h2>Engineer Privacy Portal</h2>
       <p className="muted" style={{ marginBottom: "1.5rem" }}>
@@ -149,7 +149,7 @@ export default function PrivacyPortal({ onBack }) {
             <h3 style={{ marginBottom: "0.5rem" }}>Consent Status</h3>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
               <span className={`tag ${hasConsent ? "tag-green" : ""}`} style={!hasConsent ? { background: "#ffebe9", color: "#d1242f" } : {}}>
-                {hasConsent ? "✓ Active" : "✗ No consent / Revoked"}
+                {hasConsent ? "&#10003; Active" : "&#10007; No consent / Revoked"}
               </span>
               {consentStatus?.consent_record?.granted_at && (
                 <span className="muted" style={{ fontSize: "12px" }}>
