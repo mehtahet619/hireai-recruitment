@@ -2,6 +2,7 @@
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Annotated, Any
 import asyncio
+import os
 
 from .config import get_settings
 from .schemas import (
@@ -486,6 +487,58 @@ async def api_employer_google_auth(req: GoogleAuthRequest):
         "email": emp.email,
         "company_name": emp.company_name,
     }
+
+
+@app.post("/api/employer/auth/supabase")
+async def api_employer_supabase_auth(authorization: Annotated[str | None, Header()] = None):
+    """Verify a Supabase-issued access token and return our own JWT.
+
+    Flow: frontend does supabase.auth.signInWithOAuth → gets access_token
+    → sends it here → we verify with Supabase's public JWKS → upsert employer.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing token")
+    supabase_token = authorization[7:]
+
+    # Verify token via Supabase's /auth/v1/user endpoint — simplest, no extra deps
+    supabase_url = os.getenv("SUPABASE_URL", "").strip()
+    supabase_anon = os.getenv("SUPABASE_ANON_KEY", "").strip()
+    if not supabase_url:
+        raise HTTPException(status_code=501, detail="SUPABASE_URL not configured")
+
+    import urllib.request as _req
+    import json as _json
+    try:
+        r = _req.Request(
+            f"{supabase_url}/auth/v1/user",
+            headers={"Authorization": f"Bearer {supabase_token}",
+                     "apikey": supabase_anon},
+        )
+        with _req.urlopen(r, timeout=10) as resp:
+            user = _json.loads(resp.read())
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Invalid Supabase token: {e}")
+
+    email = (user.get("email") or "").lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="Google account has no email")
+
+    name = (user.get("user_metadata") or {}).get("full_name", "") or email.split("@")[0]
+
+    emp = get_employer_by_email(email)
+    if not emp:
+        import secrets as _secrets
+        try:
+            emp = create_employer(email, _secrets.token_hex(32), name)
+        except ValueError:
+            emp = get_employer_by_email(email)  # race: already created
+
+    if not emp:
+        raise HTTPException(status_code=500, detail="Failed to create employer")
+
+    token = create_token(emp.employer_id, emp.email, emp.company_name)
+    return {"token": token, "employer_id": emp.employer_id,
+            "email": emp.email, "company_name": emp.company_name}
 
 
 @app.post("/api/employer/register")

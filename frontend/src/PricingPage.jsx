@@ -69,7 +69,7 @@ export default function PricingPage({ token, user, onUpgraded, onLoginRequired }
       }
       const order = await res.json();
 
-      // Demo mode — no Razorpay keys configured, plan activated directly
+      // Demo mode &mdash; no Razorpay keys configured, plan activated directly
       if (order.demo) {
         setSuccess(order.message);
         setCurrentPlan({ plan: plan.id, plan_expires_at: order.plan_expires_at });
@@ -144,9 +144,9 @@ export default function PricingPage({ token, user, onUpgraded, onLoginRequired }
       {currentPlan && (
         <div className="current-plan-banner">
           Active plan: <strong>{activePlan.charAt(0).toUpperCase() + activePlan.slice(1)}</strong>
-          {activePlan === "free" && <span className="muted"> · 1 free job posting included</span>}
+          {activePlan === "free" && <span className="muted"> &middot; 1 free job posting included</span>}
           {currentPlan.plan_expires_at && activePlan !== "free" && (
-            <span className="muted"> · renews {new Date(currentPlan.plan_expires_at).toLocaleDateString("en-IN")}</span>
+            <span className="muted"> &middot; renews {new Date(currentPlan.plan_expires_at).toLocaleDateString("en-IN")}</span>
           )}
         </div>
       )}

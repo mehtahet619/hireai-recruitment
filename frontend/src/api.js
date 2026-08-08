@@ -1,4 +1,4 @@
-﻿const BASE = import.meta.env.VITE_API_BASE || "";
+const BASE = import.meta.env.VITE_API_BASE || "";
 
 async function req(method, path, body, token) {
   const headers = { "Content-Type": "application/json" };

@@ -55,6 +55,11 @@ class Settings:
         self.secret_key: str = os.getenv(
             "SECRET_KEY", "dev-insecure-secret-change-in-production"
         ).strip()
+        # Supabase Postgres — connect via the direct DB URL (service role).
+        # Set SUPABASE_DB_URL to the "Direct connection" string from
+        # Supabase Dashboard → Settings → Database.
+        # Falls back to in-memory/Valkey when not set (local dev).
+        self.supabase_db_url: str = os.getenv("SUPABASE_DB_URL", "").strip()
 
     @property
     def prompts_dir(self) -> Path:
