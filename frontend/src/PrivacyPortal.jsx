@@ -137,7 +137,7 @@ export default function PrivacyPortal({ onBack }) {
             placeholder="you@company.com"
             onChange={e => setEngineerId(e.target.value)} />
           {error && <p className="error">{error}</p>}
-          <button type="submit" disabled={loading}>{loading ? "Looking up…" : "View my data"}</button>
+          <button type="submit" disabled={loading}>{loading ? "Looking up&hellip;" : "View my data"}</button>
         </form>
       ) : (
         <div>
@@ -161,7 +161,7 @@ export default function PrivacyPortal({ onBack }) {
             {/* Category selection */}
             <div style={{ marginTop: "1rem" }}>
               <p className="muted" style={{ fontSize: "13px", marginBottom: "8px" }}>
-                Signal categories — select what you allow us to collect:
+                Signal categories &mdash; select what you allow us to collect:
               </p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                 {SIGNAL_CATEGORIES.map(cat => (

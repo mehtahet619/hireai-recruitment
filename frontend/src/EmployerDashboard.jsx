@@ -1031,7 +1031,7 @@ function ComplianceTab({ token }) {
     <div>
       {error && <div className="error" style={{ marginBottom: "1rem" }}>{error}</div>}
 
-      {/* Open alerts — prominently surfaced */}
+      {/* Open alerts &mdash; prominently surfaced */}
       {openAlerts.length > 0 && (
         <div style={{ background: "#ffebe9", border: "1px solid #ffcecb", borderRadius: "8px", padding: "12px 16px", marginBottom: "1.5rem" }}>
           <strong style={{ color: "#d1242f" }}>&#9888; {openAlerts.length} open compliance alert{openAlerts.length !== 1 ? "s" : ""} require attention</strong>
@@ -1418,7 +1418,7 @@ function PerformanceTab({ token }) {
 }
 
 // ---------------------------------------------------------------------------
-// FlywheelSection — shown in dashboard header
+// FlywheelSection &mdash; shown in dashboard header
 // ---------------------------------------------------------------------------
 
 function FlywheelSection({ token }) {

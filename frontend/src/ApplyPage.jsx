@@ -79,16 +79,16 @@ export default function ApplyPage({ jobId, onBack }) {
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
   useEffect(() => { violationsRef.current = violations; }, [violations]);
 
-  // ── Tab-switch monitor (only active during interview) ──────────────────
+  // -- Tab-switch monitor (only active during interview) ------------------
   useEffect(() => {
     if (phase !== "interview") return;
 
     function onVisibility() {
       if (document.hidden) {
-        // started hiding — record time
+        // started hiding &mdash; record time
         tabHiddenAt.current = Date.now();
         tabTimerRef.current = setTimeout(() => {
-          // still hidden after limit — count violation
+          // still hidden after limit &mdash; count violation
           const newCount = violationsRef.current + 1;
           setViolations(newCount);
           violationsRef.current = newCount;
@@ -111,7 +111,7 @@ export default function ApplyPage({ jobId, onBack }) {
           }
         }, TAB_ABSENCE_LIMIT_MS);
       } else {
-        // came back — clear the timer if they returned quickly
+        // came back &mdash; clear the timer if they returned quickly
         clearTimeout(tabTimerRef.current);
         tabHiddenAt.current = null;
       }
@@ -137,7 +137,7 @@ export default function ApplyPage({ jobId, onBack }) {
     }
   }
 
-  // ── Preflight ──────────────────────────────────────────────────────────
+  // -- Preflight ----------------------------------------------------------
   async function runPreflight() {
     setPreflightDone(false);
     setError("");
@@ -153,7 +153,7 @@ export default function ApplyPage({ jobId, onBack }) {
     screenStatus === "ready" &&
     preflightDone;
 
-  // ── Submit form → start interview ──────────────────────────────────────
+  // -- Submit form &rarr; start interview --------------------------------------
   async function handleSubmit(e) {
     e.preventDefault();
     setPhase("preflight");
@@ -187,7 +187,7 @@ export default function ApplyPage({ jobId, onBack }) {
     }
   }
 
-  // ── Chat ───────────────────────────────────────────────────────────────
+  // -- Chat ---------------------------------------------------------------
   async function handleSend(text) {
     const message = text.trim();
     if (!message || !sessionId || loading) return;
@@ -234,8 +234,8 @@ export default function ApplyPage({ jobId, onBack }) {
     }
   }
 
-  // ── Render helpers ─────────────────────────────────────────────────────
-  if (!job && !error) return <div className="page-center muted">Loading job…</div>;
+  // -- Render helpers -----------------------------------------------------
+  if (!job && !error) return <div className="page-center muted">Loading job&hellip;</div>;
 
   if (phase === "banned") {
     return (
@@ -254,7 +254,7 @@ export default function ApplyPage({ jobId, onBack }) {
   return (
     <div className="apply-page">
       {phase !== "complete" && (
-        <button className="btn-ghost back-btn" onClick={onBack}>← Back to jobs</button>
+        <button className="btn-ghost back-btn" onClick={onBack}>&larr; Back to jobs</button>
       )}
 
       {job && phase !== "complete" && (
@@ -268,13 +268,13 @@ export default function ApplyPage({ jobId, onBack }) {
         </div>
       )}
 
-      {/* ── FORM ── */}
+      {/* -- FORM -- */}
       {phase === "form" && (
         <div className="apply-form-wrap">
           <div className="apply-form card">
             <h3>Your application</h3>
             <p className="muted">
-              After submitting we'll verify your camera, mic, network, and screen share — then Aria
+              After submitting we'll verify your camera, mic, network, and screen share &mdash; then Aria
               will interview you immediately.
             </p>
             {error && <p className="error">{error}</p>}
@@ -293,7 +293,7 @@ export default function ApplyPage({ jobId, onBack }) {
                 placeholder="jane@example.com" required />
               <label>Resume / CV</label>
               <textarea value={form.resume} onChange={(e) => setForm({ ...form, resume: e.target.value })}
-                rows={10} placeholder="Paste your resume text here…" required />
+                rows={10} placeholder="Paste your resume text here&hellip;" required />
               <div className="form-footer">
                 <label className="toggle">
                   <input type="checkbox" checked={voiceMode}
@@ -301,7 +301,7 @@ export default function ApplyPage({ jobId, onBack }) {
                   Voice mode (Aria speaks aloud)
                 </label>
                 <button type="submit" disabled={loading}>
-                  Continue to checks →
+                  Continue to checks &rarr;
                 </button>
               </div>
             </form>
@@ -315,7 +315,7 @@ export default function ApplyPage({ jobId, onBack }) {
         </div>
       )}
 
-      {/* ── PREFLIGHT ── */}
+      {/* -- PREFLIGHT -- */}
       {phase === "preflight" && (
         <div className="preflight-panel card">
           <h2>Pre-interview checks</h2>
@@ -326,25 +326,25 @@ export default function ApplyPage({ jobId, onBack }) {
               <CheckItem
                 label="Camera"
                 status={video.status}
-                detail={video.status === "ready" ? "Webcam active" : video.status === "checking" ? "Requesting camera…" : "Camera required"}
+                detail={video.status === "ready" ? "Webcam active" : video.status === "checking" ? "Requesting camera&hellip;" : "Camera required"}
                 error={video.error}
               />
               <CheckItem
                 label="Microphone"
                 status={video.status} // mic is part of getUserMedia (audio:true)
-                detail={video.status === "ready" ? "Audio active" : video.status === "checking" ? "Requesting mic…" : "Microphone required"}
+                detail={video.status === "ready" ? "Audio active" : video.status === "checking" ? "Requesting mic&hellip;" : "Microphone required"}
                 error={null}
               />
               <CheckItem
                 label="Network"
                 status={network.status}
-                detail={network.metrics ? `${network.metrics.latencyMs}ms latency` : network.status === "checking" ? "Testing connection…" : "Connection required"}
+                detail={network.metrics ? `${network.metrics.latencyMs}ms latency` : network.status === "checking" ? "Testing connection&hellip;" : "Connection required"}
                 error={network.error}
               />
               <CheckItem
                 label="Screen share"
                 status={screenStatus}
-                detail={screenStatus === "ready" ? "Screen sharing active" : screenStatus === "checking" ? "Requesting screen…" : "Full-screen share required"}
+                detail={screenStatus === "ready" ? "Screen sharing active" : screenStatus === "checking" ? "Requesting screen&hellip;" : "Full-screen share required"}
                 error={screenError}
               />
               <div className="preflight-rules">
@@ -364,7 +364,7 @@ export default function ApplyPage({ jobId, onBack }) {
               <video ref={video.videoRef} autoPlay playsInline muted className="video-preview" />
               {video.status !== "ready" && (
                 <div className="video-placeholder">
-                  {video.status === "checking" ? "Checking camera…" : "Camera preview"}
+                  {video.status === "checking" ? "Checking camera&hellip;" : "Camera preview"}
                 </div>
               )}
               {screenStream && (
@@ -379,22 +379,22 @@ export default function ApplyPage({ jobId, onBack }) {
           <div className="preflight-actions">
             <button className="btn-secondary" onClick={() => setPhase("form")}>Back</button>
             <button onClick={handleStartInterview} disabled={!preflightReady || loading}>
-              {loading ? "Starting…" : "Start interview with Aria"}
+              {loading ? "Starting&hellip;" : "Start interview with Aria"}
             </button>
           </div>
         </div>
       )}
 
-      {/* ── INTERVIEW ── */}
+      {/* -- INTERVIEW -- */}
       {phase === "interview" && (
         <div className="interview-active">
           {/* Tab warning overlay */}
           {showTabWarning && (
             <div className="warning-overlay">
               <div className="warning-card">
-                <h3>⚠️ Tab switch detected</h3>
+                <h3>&#9888; Tab switch detected</h3>
                 <p>Violation {violations} of {MAX_VIOLATIONS}. One more and your interview will be terminated.</p>
-                <p className="muted">Returning in {tabCountdown}s…</p>
+                <p className="muted">Returning in {tabCountdown}s&hellip;</p>
               </div>
             </div>
           )}
@@ -405,7 +405,7 @@ export default function ApplyPage({ jobId, onBack }) {
               <div>
                 <strong>Aria</strong>
                 <div className="muted">
-                  {speaking ? "Speaking…" : listening ? "Listening…" : loading ? "Thinking…" : "Interview in progress"}
+                  {speaking ? "Speaking&hellip;" : listening ? "Listening&hellip;" : loading ? "Thinking&hellip;" : "Interview in progress"}
                 </div>
               </div>
             </div>
@@ -416,9 +416,9 @@ export default function ApplyPage({ jobId, onBack }) {
                   ref={(el) => { if (el) el.srcObject = screenStream; }} />
               )}
               {violations > 0 && (
-                <span className="violation-badge">⚠️ {violations}/{MAX_VIOLATIONS}</span>
+                <span className="violation-badge">&#9888; {violations}/{MAX_VIOLATIONS}</span>
               )}
-              {recording && <span className="rec-dot">● REC</span>}
+              {recording && <span className="rec-dot">&#9679; REC</span>}
               <label className="toggle compact">
                 <input type="checkbox" checked={voiceMode} onChange={(e) => setVoiceMode(e.target.checked)} />
                 Voice
@@ -446,12 +446,12 @@ export default function ApplyPage({ jobId, onBack }) {
             <input type="text" value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSend(input)}
-              placeholder="Type your answer or use the mic…"
+              placeholder="Type your answer or use the mic&hellip;"
               disabled={loading || speaking} />
             {supported.stt && (
               <button className={`mic-btn ${listening ? "active" : ""}`}
                 onClick={handleMic} disabled={loading || speaking} title="Speak">
-                {listening ? "●" : "🎤"}
+                {listening ? "&#9679;" : "🎤"}
               </button>
             )}
             <button onClick={() => handleSend(input)} disabled={loading || speaking || !input.trim()}>
@@ -463,14 +463,14 @@ export default function ApplyPage({ jobId, onBack }) {
         </div>
       )}
 
-      {/* ── COMPLETE ── */}
+      {/* -- COMPLETE -- */}
       {phase === "complete" && results && (
         <div className="results-page">
           <div className="results-card card">
             <div className="results-header">
               <div className="aria-avatar" style={{ margin: "0 auto 16px" }}>A</div>
               <h2>Interview complete</h2>
-              <p className="muted">Thanks {form.name} — here's how you did.</p>
+              <p className="muted">Thanks {form.name} &mdash; here's how you did.</p>
             </div>
 
             <div className="score-row" style={{ justifyContent: "center", margin: "24px 0" }}>
