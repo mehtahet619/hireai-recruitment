@@ -13,3 +13,4 @@ razorpay==1.4.2
 hypothesis==6.131.14
 pytest==8.3.5
 pytest-mock==3.14.0
+psycopg2-binary==2.9.10

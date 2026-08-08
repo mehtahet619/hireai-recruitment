@@ -50,6 +50,16 @@ export default function App() {
     setView("jobs");
   }
 
+  // Landing page renders standalone — no app shell
+  if (view === "landing") {
+    return (
+      <LandingPage
+        onHirerClick={() => setView("employer-auth")}
+        onCandidateClick={() => setView("jobs")}
+      />
+    );
+  }
+
   return (
     <div className="app">
       <header>
@@ -60,24 +70,15 @@ export default function App() {
           )}
         </div>
         <nav className="header-nav">
-          {view !== "landing" && view !== "employer-auth" && view !== "employer-dash" && (
+          {view !== "employer-auth" && view !== "employer-dash" && (
             <>
               <button className="btn-ghost" onClick={() => setView("landing")}>Home</button>
               <button className={view === "jobs" ? "nav-active" : "btn-ghost"}
                 onClick={() => setView("jobs")}>Jobs</button>
               <button className={view === "pricing" ? "nav-active" : "btn-ghost"}
                 onClick={() => setView("pricing")}>Pricing</button>
-              <button className="btn-ghost"
-                onClick={() => setView("privacy")}>Privacy</button>
-              <button className="btn-secondary"
-                onClick={() => setView("employer-auth")}>For employers</button>
-            </>
-          )}
-          {view === "landing" && (
-            <>
-              <button className="btn-ghost" onClick={() => setView("jobs")}>Jobs</button>
-              <button className="btn-ghost" onClick={() => setView("pricing")}>Pricing</button>
-              <button className="btn-secondary" onClick={() => setView("employer-auth")}>For Employers</button>
+              <button className="btn-ghost" onClick={() => setView("privacy")}>Privacy</button>
+              <button className="btn-secondary" onClick={() => setView("employer-auth")}>For employers</button>
             </>
           )}
           {view === "employer-dash" && (
@@ -87,25 +88,18 @@ export default function App() {
             </>
           )}
           {view === "employer-auth" && (
-            <button className="btn-ghost" onClick={() => setView("landing")}>&larr; Back home</button>
+            <button className="btn-ghost" onClick={() => setView("landing")}>← Back home</button>
           )}
-          {view === "pricing" && !isLoggedIn && (
-            <button className="btn-ghost" onClick={() => setView("landing")}>&larr; Back</button>
+          {(view === "pricing" && !isLoggedIn) && (
+            <button className="btn-ghost" onClick={() => setView("landing")}>← Back</button>
           )}
-          {view === "pricing" && isLoggedIn && (
-            <button className="btn-ghost" onClick={() => setView("employer-dash")}>&larr; Dashboard</button>
+          {(view === "pricing" && isLoggedIn) && (
+            <button className="btn-ghost" onClick={() => setView("employer-dash")}>← Dashboard</button>
           )}
         </nav>
       </header>
 
       <main>
-        {view === "landing" && (
-          <LandingPage
-            onCandidateClick={handleCandidateClick}
-            onRecruiterClick={handleRecruiterClick}
-            onPricingClick={handlePricingClick}
-          />
-        )}
         {view === "jobs" && <JobBoard onApply={handleApply} />}
         {view === "apply" && applyJobId && (
           <ApplyPage jobId={applyJobId} onBack={() => setView("jobs")} />
