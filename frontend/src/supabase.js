@@ -6,7 +6,7 @@ const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
 // null when env vars aren't set — callers must guard with `if (!supabase)`
 export const supabase = url && key ? createClient(url, key) : null;
 
-const redirect = () => `${window.location.origin}/dashboard`;
+const redirect = () => window.location.origin;
 
 /** Google OAuth — redirects to Google consent screen */
 export async function signInWithGoogle() {

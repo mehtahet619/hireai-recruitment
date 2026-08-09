@@ -8,6 +8,9 @@ import EmployerAuth from "./EmployerAuth.jsx";
 import EmployerDashboard from "./EmployerDashboard.jsx";
 import PricingPage from "./PricingPage.jsx";
 import PrivacyPortal from "./PrivacyPortal.jsx";
+import { supabase } from "./supabase.js";
+
+const BASE = import.meta.env.VITE_API_BASE || "";
 
 export default function App() {
   const { token, user, login, logout, isLoggedIn } = useAuth();
@@ -21,6 +24,34 @@ export default function App() {
 
   useEffect(() => {
     if (isLoggedIn) setView("employer-dash");
+  }, [isLoggedIn]);
+
+  // Handle Supabase OAuth redirect — picks up the session when Google
+  // redirects back to the app root (before EmployerAuth is even mounted)
+  useEffect(() => {
+    if (!supabase || isLoggedIn) return;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session?.user) {
+        try {
+          const res = await fetch(`${BASE}/api/employer/auth/supabase`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            login(data.token, {
+              employer_id: data.employer_id,
+              email: data.email,
+              company_name: data.company_name,
+            });
+          }
+        } catch (_) {}
+      }
+    });
+    return () => subscription.unsubscribe();
   }, [isLoggedIn]);
 
   function handleCandidateClick() {
