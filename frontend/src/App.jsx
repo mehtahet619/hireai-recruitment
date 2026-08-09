@@ -26,12 +26,12 @@ export default function App() {
     if (isLoggedIn) setView("employer-dash");
   }, [isLoggedIn]);
 
-  // Handle Supabase OAuth redirect — picks up the session when Google
-  // redirects back to the app root (before EmployerAuth is even mounted)
+  // Handle Supabase OAuth redirect — fires when Google redirects back to the app
   useEffect(() => {
-    if (!supabase || isLoggedIn) return;
+    if (!supabase) return;
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session?.user) {
+      // Only act on fresh OAuth sign-ins, not on existing localStorage sessions
+      if (event === "SIGNED_IN" && session?.user) {
         try {
           const res = await fetch(`${BASE}/api/employer/auth/supabase`, {
             method: "POST",
@@ -47,12 +47,13 @@ export default function App() {
               email: data.email,
               company_name: data.company_name,
             });
+            setView("employer-dash");
           }
         } catch (_) {}
       }
     });
     return () => subscription.unsubscribe();
-  }, [isLoggedIn]);
+  }, []);
 
   function handleCandidateClick() {
     setView("jobs");
