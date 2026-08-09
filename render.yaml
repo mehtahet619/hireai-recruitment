@@ -58,6 +58,13 @@ services:
         value: auto
       - key: S3_PUBLIC_BASE
         sync: false
+      # Supabase — persistent DB storage and auth token verification
+      - key: SUPABASE_URL
+        value: https://qxxzwxmqpbzyxwkavmpm.supabase.co
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_DB_URL
+        sync: false
       # Auto-wired from frontend service URL
       - key: CORS_ORIGINS
         fromService:
@@ -78,9 +85,13 @@ services:
         fromService:
           type: web
           name: ai-recruiter-api
-      # Google OAuth client ID — must match the backend GOOGLE_CLIENT_ID
-      # Set this in the Render dashboard as a secret env var
+      # Google OAuth client ID
       - key: VITE_GOOGLE_CLIENT_ID
         sync: false
       - key: VITE_RAZORPAY_KEY_ID
+        sync: false
+      # Supabase — required for Google/LinkedIn OAuth and magic link
+      - key: VITE_SUPABASE_URL
+        value: https://qxxzwxmqpbzyxwkavmpm.supabase.co
+      - key: VITE_SUPABASE_ANON_KEY
         sync: false
