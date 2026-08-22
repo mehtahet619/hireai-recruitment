@@ -15,7 +15,10 @@ const BASE = import.meta.env.VITE_API_BASE || "";
 export default function App() {
   const { token, user, login, logout, isLoggedIn } = useAuth();
   const [health, setHealth] = useState(null);
-  const [view, setView] = useState("landing"); // landing | jobs | apply | pricing | employer-auth | employer-dash | privacy
+  // Start on dashboard if already logged in (token in localStorage)
+  const [view, setView] = useState(() =>
+    localStorage.getItem("employer_token") ? "employer-dash" : "landing"
+  );
   const [applyJobId, setApplyJobId] = useState(null);
 
   useEffect(() => {
@@ -26,12 +29,13 @@ export default function App() {
     if (isLoggedIn) setView("employer-dash");
   }, [isLoggedIn]);
 
-  // Handle Supabase OAuth redirect — picks up the session when Google
-  // redirects back to the app root (before EmployerAuth is even mounted)
+  // Handle Supabase OAuth redirect — fires when Google redirects back to the app
   useEffect(() => {
-    if (!supabase || isLoggedIn) return;
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session?.user) {
+    if (!supabase) return;
+
+    // Proactively check for an existing session on mount (covers the hash fragment case)
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user && !isLoggedIn) {
         try {
           const res = await fetch(`${BASE}/api/employer/auth/supabase`, {
             method: "POST",
@@ -47,12 +51,36 @@ export default function App() {
               email: data.email,
               company_name: data.company_name,
             });
+            setView("employer-dash");
+          }
+        } catch (_) {}
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_IN" && session?.user) {
+        try {
+          const res = await fetch(`${BASE}/api/employer/auth/supabase`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            login(data.token, {
+              employer_id: data.employer_id,
+              email: data.email,
+              company_name: data.company_name,
+            });
+            setView("employer-dash");
           }
         } catch (_) {}
       }
     });
     return () => subscription.unsubscribe();
-  }, [isLoggedIn]);
+  }, []);
 
   function handleCandidateClick() {
     setView("jobs");
@@ -78,7 +106,7 @@ export default function App() {
 
   function handleLogout() {
     logout();
-    setView("jobs");
+    setView("landing");
   }
 
   // Landing page renders standalone — no app shell

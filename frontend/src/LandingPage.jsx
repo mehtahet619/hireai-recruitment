@@ -1,70 +1,89 @@
-import React, { useEffect, useRef, useState } from "react";
-import "./landing.css";
-import { motion, useScroll, useTransform, useInView, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import { motion, useInView, AnimatePresence } from "framer-motion";
 import {
-  Zap, Brain, Shield, BarChart3, Users, Clock, Check, Star, ChevronDown,
-  ArrowRight, Play, GitBranch, Mail, Globe2, Menu, X, Sparkles, TrendingUp, Globe
+  Zap, Search, FileText, BarChart2, CheckCircle, ArrowRight,
+  Menu, X, GitBranch, ChevronRight, Sparkles, TrendingUp,
+  Clock, Target, Brain, ListChecks
 } from "lucide-react";
+import "./landing.css";
 
-// ── Animation variants ────────────────────────────────────────────────────────
-const fadeUp = { hidden: { opacity: 0, y: 40 }, visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: "easeOut" } } };
-const fadeIn = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { duration: 0.6 } } };
-const stagger = { visible: { transition: { staggerChildren: 0.12 } } };
-const slideLeft = { hidden: { opacity: 0, x: -60 }, visible: { opacity: 1, x: 0, transition: { duration: 0.7, ease: "easeOut" } } };
-const slideRight = { hidden: { opacity: 0, x: 60 }, visible: { opacity: 1, x: 0, transition: { duration: 0.7, ease: "easeOut" } } };
-const scaleIn = { hidden: { opacity: 0, scale: 0.85 }, visible: { opacity: 1, scale: 1, transition: { duration: 0.5, ease: "easeOut" } } };
+// ── Animation helpers ─────────────────────────────────────────────────────────
+const fadeUp = {
+  hidden: { opacity: 0, y: 24 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] } }
+};
+const stagger = { visible: { transition: { staggerChildren: 0.1 } } };
 
-// ── Reusable: Section heading ─────────────────────────────────────────────────
-function SectionHeading({ badge, title, subtitle }) {
+function Reveal({ children, delay = 0, className = "" }) {
   const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: "-80px" });
+  const inView = useInView(ref, { once: true, margin: "-60px" });
   return (
-    <motion.div ref={ref} variants={stagger} initial="hidden" animate={inView ? "visible" : "hidden"} className="lp-section-heading">
-      {badge && <motion.span variants={fadeUp} className="lp-badge">{badge}</motion.span>}
-      <motion.h2 variants={fadeUp} className="lp-h2">{title}</motion.h2>
-      {subtitle && <motion.p variants={fadeUp} className="lp-subtitle">{subtitle}</motion.p>}
+    <motion.div ref={ref} variants={fadeUp} initial="hidden"
+      animate={inView ? "visible" : "hidden"}
+      transition={{ delay }}
+      className={className}>
+      {children}
     </motion.div>
   );
 }
 
 // ── Navbar ────────────────────────────────────────────────────────────────────
-function Navbar({ onHirerClick, onCandidateClick }) {
+function Navbar({ onGetStarted, onLogin }) {
   const [scrolled, setScrolled] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [open, setOpen] = useState(false);
   useEffect(() => {
-    const fn = () => setScrolled(window.scrollY > 20);
+    const fn = () => setScrolled(window.scrollY > 12);
     window.addEventListener("scroll", fn);
     return () => window.removeEventListener("scroll", fn);
   }, []);
+  const links = [
+    { label: "Features", href: "#features" },
+    { label: "How it works", href: "#how-it-works" },
+    { label: "Pricing", href: "#pricing" },
+    { label: "GitHub", href: "https://github.com/mehtahet619/hireai-recruitment", external: true },  ];
   return (
-    <motion.nav initial={{ y: -80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.6, ease: "easeOut" }}
-      className={`lp-nav ${scrolled ? "lp-nav-scrolled" : ""}`}>
-      <div className="lp-nav-inner">
-        <div className="lp-nav-brand">
-          <div className="lp-logo-dot" /><span className="lp-logo-text">HireAI</span>
-        </div>
-        <div className="lp-nav-links">
-          {["Features", "How it works", "Pricing", "FAQ"].map(l => (
-            <a key={l} href={`#${l.toLowerCase().replace(/ /g, "-")}`} className="lp-nav-link">{l}</a>
+    <motion.nav initial={{ y: -56, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      className={`lp-nav${scrolled ? " lp-nav--scrolled" : ""}`}>
+      <div className="lp-nav__inner">
+        <a href="#" className="lp-nav__brand" onClick={e => { e.preventDefault(); window.scrollTo(0, 0); }}>
+          <span className="lp-nav__dot" />
+          <span className="lp-nav__name">HireAI</span>
+        </a>
+        <div className="lp-nav__links">
+          {links.map(l => (
+            <a key={l.label} href={l.href}
+              target={l.external ? "_blank" : undefined}
+              rel={l.external ? "noopener noreferrer" : undefined}
+              className="lp-nav__link">
+              {l.label}
+            </a>
           ))}
         </div>
-        <div className="lp-nav-actions">
-          <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }} className="lp-btn-ghost" onClick={onCandidateClick}>Find jobs</motion.button>
-          <motion.button whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.95 }} className="lp-btn-primary" onClick={onHirerClick}>Post a job</motion.button>
+        <div className="lp-nav__actions">
+          <button className="lp-btn lp-btn--ghost" onClick={onLogin}>Log in</button>
+          <button className="lp-btn lp-btn--primary" onClick={onGetStarted}>Get started</button>
         </div>
-        <button className="lp-menu-toggle" onClick={() => setMenuOpen(!menuOpen)}>
-          {menuOpen ? <X size={22} /> : <Menu size={22} />}
+        <button className="lp-nav__burger" onClick={() => setOpen(!open)} aria-label="Toggle menu">
+          {open ? <X size={20} /> : <Menu size={20} />}
         </button>
       </div>
       <AnimatePresence>
-        {menuOpen && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3 }} className="lp-mobile-menu">
-            {["Features", "How it works", "Pricing", "FAQ"].map(l => (
-              <a key={l} href={`#${l.toLowerCase().replace(/ /g, "-")}`} className="lp-mobile-link" onClick={() => setMenuOpen(false)}>{l}</a>
+        {open && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }}
+            className="lp-nav__mobile">
+            {links.map(l => (
+              <a key={l.label} href={l.href} className="lp-nav__mobile-link"
+                target={l.external ? "_blank" : undefined}
+                rel={l.external ? "noopener noreferrer" : undefined}
+                onClick={() => setOpen(false)}>
+                {l.label}
+              </a>
             ))}
-            <button className="lp-btn-outline" style={{ margin: "4px 0" }} onClick={() => { setMenuOpen(false); onCandidateClick(); }}>Find jobs</button>
-            <button className="lp-btn-primary" style={{ width: "100%", marginTop: "4px" }} onClick={() => { setMenuOpen(false); onHirerClick(); }}>Post a job</button>
+            <button className="lp-btn lp-btn--primary lp-btn--full" onClick={() => { setOpen(false); onGetStarted(); }}>
+              Get started
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -72,161 +91,152 @@ function Navbar({ onHirerClick, onCandidateClick }) {
   );
 }
 
-// ── Floating blobs ────────────────────────────────────────────────────────────
-function Blobs() {
-  return (
-    <div className="lp-blobs" aria-hidden>
-      <motion.div className="lp-blob lp-blob-1" animate={{ x: [0,40,-20,0], y: [0,-30,20,0] }} transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }} />
-      <motion.div className="lp-blob lp-blob-2" animate={{ x: [0,-30,20,0], y: [0,40,-20,0] }} transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }} />
-      <motion.div className="lp-blob lp-blob-3" animate={{ x: [0,20,-40,0], y: [0,-20,30,0] }} transition={{ duration: 16, repeat: Infinity, ease: "easeInOut" }} />
-    </div>
-  );
-}
-
-// ── Particles ─────────────────────────────────────────────────────────────────
-function Particles() {
-  const pts = Array.from({ length: 30 }, (_, i) => ({
-    id: i, x: Math.random() * 100, y: Math.random() * 100,
-    size: Math.random() * 2 + 1, dur: Math.random() * 10 + 8,
-  }));
-  return (
-    <div className="lp-particles" aria-hidden>
-      {pts.map(p => (
-        <motion.div key={p.id} className="lp-particle"
-          style={{ left: `${p.x}%`, top: `${p.y}%`, width: p.size, height: p.size }}
-          animate={{ y: [0, -30, 0], opacity: [0.2, 0.7, 0.2] }}
-          transition={{ duration: p.dur, repeat: Infinity, ease: "easeInOut", delay: p.id * 0.3 }} />
-      ))}
-    </div>
-  );
-}
-
-// ── Hero ──────────────────────────────────────────────────────────────────────
-function Hero({ onHirerClick, onCandidateClick }) {
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-  const springX = useSpring(mouseX, { stiffness: 60, damping: 20 });
-  const springY = useSpring(mouseY, { stiffness: 60, damping: 20 });
-  const handleMouse = (e) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    mouseX.set((e.clientX - r.left - r.width / 2) / 30);
-    mouseY.set((e.clientY - r.top - r.height / 2) / 30);
-  };
-  return (
-    <section className="lp-hero" onMouseMove={handleMouse}>
-      <Blobs />
-      <Particles />
-      <div className="lp-hero-grid" />
-      <motion.div className="lp-hero-content" variants={stagger} initial="hidden" animate="visible">
-        <motion.div variants={fadeUp} className="lp-hero-badge">
-          <Sparkles size={14} /><span>AI-Powered Recruiting, Reimagined</span>
-        </motion.div>
-        <motion.h1 variants={fadeUp} className="lp-h1">
-          Hire the best engineers{" "}
-          <span className="lp-gradient-text">10× faster</span>{" "}
-          with AI interviews
-        </motion.h1>
-        <motion.p variants={fadeUp} className="lp-hero-sub">
-          HireAI automates technical screening with intelligent AI interviews, instant scoring,
-          and bias-free candidate evaluation — so your team focuses on what matters.
-        </motion.p>
-        <motion.div variants={fadeUp} className="lp-portal-choice">
-          <motion.button whileHover={{ scale: 1.06, boxShadow: "0 0 40px rgba(99,102,241,0.5)" }}
-            whileTap={{ scale: 0.95 }} className="lp-portal-btn lp-portal-hirer" onClick={onHirerClick}>
-            <div className="lp-portal-icon">🏢</div>
-            <div>
-              <div className="lp-portal-label">I'm hiring</div>
-              <div className="lp-portal-desc">Post jobs & review AI-screened candidates</div>
-            </div>
-            <ArrowRight size={18} className="lp-portal-arrow" />
-          </motion.button>
-          <motion.button whileHover={{ scale: 1.06, boxShadow: "0 0 40px rgba(56,189,248,0.3)" }}
-            whileTap={{ scale: 0.95 }} className="lp-portal-btn lp-portal-candidate" onClick={onCandidateClick}>
-            <div className="lp-portal-icon">🧑‍💻</div>
-            <div>
-              <div className="lp-portal-label">I'm job hunting</div>
-              <div className="lp-portal-desc">Browse openings & get AI-interviewed instantly</div>
-            </div>
-            <ArrowRight size={18} className="lp-portal-arrow" />
-          </motion.button>
-        </motion.div>
-        <motion.p variants={fadeUp} className="lp-hero-note">Free for candidates · No credit card required for employers</motion.p>
-      </motion.div>
-      <motion.div className="lp-hero-visual" style={{ x: springX, y: springY }}>
-        <DashboardMockup />
-      </motion.div>
-      <motion.div className="lp-scroll-indicator" animate={{ y: [0, 10, 0] }} transition={{ duration: 2, repeat: Infinity }}>
-        <ChevronDown size={22} />
-      </motion.div>
-    </section>
-  );
-}
-
 // ── Dashboard mockup ──────────────────────────────────────────────────────────
-function DashboardMockup() {
-  const candidates = [
-    { name: "Alex Chen", score: 94, band: "Strong Advance", color: "#22c55e" },
-    { name: "Maya Patel", score: 87, band: "Advance", color: "#3b82f6" },
-    { name: "Jordan Lee", score: 72, band: "Borderline", color: "#f59e0b" },
-  ];
+const JOBS = [
+  { title: "Senior Frontend Engineer", company: "Linear", match: 94, status: "Applied", skills: ["React", "TypeScript", "CSS"] },
+  { title: "Full Stack Developer", company: "Vercel", match: 88, status: "Interview", skills: ["Next.js", "Node.js", "Postgres"] },
+  { title: "Product Engineer", company: "Notion", match: 81, status: "Reviewing", skills: ["React", "Go", "Design systems"] },
+];
+const STATUS_COLOR = { Applied: "#3b82f6", Interview: "#22c55e", Reviewing: "#f59e0b" };
+
+function DashboardPreview() {
   return (
-    <motion.div className="lp-mockup" initial={{ opacity: 0, y: 60, scale: 0.92 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.9, delay: 0.4, ease: "easeOut" }}>
-      <div className="lp-mockup-bar">
-        <span className="lp-dot red" /><span className="lp-dot yellow" /><span className="lp-dot green" />
-        <span className="lp-mockup-title">HireAI Dashboard</span>
+    <motion.div className="lp-dashboard" initial={{ opacity: 0, y: 40, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.7, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}>
+      <div className="lp-dashboard__bar">
+        <span className="lp-dashboard__dot red" />
+        <span className="lp-dashboard__dot yellow" />
+        <span className="lp-dashboard__dot green" />
+        <span className="lp-dashboard__title">HireAI — Job Tracker</span>
       </div>
-      <div className="lp-mockup-body">
-        <div className="lp-mockup-row">
-          {[{ label: "Candidates", val: "248", icon: <Users size={14}/> }, { label: "Avg Score", val: "87%", icon: <TrendingUp size={14}/> }, { label: "Time saved", val: "94h", icon: <Clock size={14}/> }].map(s => (
-            <div key={s.label} className="lp-mockup-stat">
-              <span className="lp-mockup-stat-icon">{s.icon}</span>
-              <span className="lp-mockup-stat-val">{s.val}</span>
-              <span className="lp-mockup-stat-label">{s.label}</span>
+      <div className="lp-dashboard__body">
+        <div className="lp-dashboard__stats">
+          {[
+            { label: "Jobs matched", val: "48", icon: <Target size={14} /> },
+            { label: "Applications", val: "12", icon: <ListChecks size={14} /> },
+            { label: "Interviews", val: "3", icon: <TrendingUp size={14} /> },
+          ].map(s => (
+            <div key={s.label} className="lp-dashboard__stat">
+              <span className="lp-dashboard__stat-icon">{s.icon}</span>
+              <span className="lp-dashboard__stat-val">{s.val}</span>
+              <span className="lp-dashboard__stat-label">{s.label}</span>
             </div>
           ))}
         </div>
-        <div className="lp-mockup-section-label">Recent interviews</div>
-        {candidates.map((c, i) => (
-          <motion.div key={c.name} className="lp-mockup-candidate"
-            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.7 + i * 0.15 }}>
-            <div className="lp-mockup-avatar">{c.name[0]}</div>
-            <div className="lp-mockup-cand-info">
-              <span className="lp-mockup-cand-name">{c.name}</span>
-              <span className="lp-mockup-cand-band" style={{ color: c.color }}>{c.band}</span>
+        <div className="lp-dashboard__section-label">Recommended for you</div>
+        {JOBS.map((j, i) => (
+          <motion.div key={j.title} className="lp-dashboard__job"
+            initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.5 + i * 0.1 }}>
+            <div className="lp-dashboard__job-info">
+              <div className="lp-dashboard__job-avatar">{j.company[0]}</div>
+              <div>
+                <div className="lp-dashboard__job-title">{j.title}</div>
+                <div className="lp-dashboard__job-company">{j.company}</div>
+                <div className="lp-dashboard__job-skills">
+                  {j.skills.map(s => <span key={s} className="lp-skill-chip">{s}</span>)}
+                </div>
+              </div>
             </div>
-            <div className="lp-mockup-score" style={{ color: c.color }}>{c.score}</div>
+            <div className="lp-dashboard__job-right">
+              <div className="lp-match-ring" style={{ "--pct": `${j.match}%` }}>
+                <span>{j.match}%</span>
+              </div>
+              <div className="lp-status-badge" style={{ color: STATUS_COLOR[j.status] }}>
+                {j.status}
+              </div>
+            </div>
           </motion.div>
         ))}
-        <div className="lp-mockup-chart">
-          {[60,75,85,70,94,88,92].map((h, i) => (
-            <motion.div key={i} className="lp-chart-bar"
-              initial={{ scaleY: 0 }} animate={{ scaleY: 1 }}
-              transition={{ delay: 1 + i * 0.07, duration: 0.4, ease: "easeOut" }}
-              style={{ height: `${h}%` }} />
-          ))}
+        <div className="lp-dashboard__ai-strip">
+          <Sparkles size={13} />
+          <span>AI is tailoring your resume for <strong>Senior Frontend Engineer at Linear</strong></span>
         </div>
       </div>
     </motion.div>
   );
 }
 
-// ── Logo cloud ────────────────────────────────────────────────────────────────
-const LOGOS = ["Google", "Microsoft", "Stripe", "Airbnb", "Notion", "Linear", "Vercel", "Figma", "Slack", "GitHub"];
-function LogoCloud() {
+// ── Hero ──────────────────────────────────────────────────────────────────────
+function Hero({ onGetStarted, onJobsClick }) {
   return (
-    <section className="lp-logos-section">
-      <p className="lp-logos-label">Trusted by teams at</p>
-      <div className="lp-logos-track-wrap">
-        <motion.div className="lp-logos-track" animate={{ x: ["0%", "-50%"] }}
-          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-          whileHover={{ animationPlayState: "paused" }}>
-          {[...LOGOS, ...LOGOS].map((l, i) => (
-            <span key={i} className="lp-logo-item">{l}</span>
-          ))}
+    <section className="lp-hero">
+      <div className="lp-hero__glow" aria-hidden />
+      <div className="lp-hero__grid" aria-hidden />
+      <div className="lp-container lp-hero__layout">
+        <motion.div className="lp-hero__copy" variants={stagger} initial="hidden" animate="visible">
+          <motion.div variants={fadeUp} className="lp-pill">
+            <Sparkles size={12} /> AI-powered job search
+          </motion.div>
+          <motion.h1 variants={fadeUp} className="lp-hero__h1">
+            Your AI-powered job search,{" "}
+            <span className="lp-gradient-text">automated.</span>
+          </motion.h1>
+          <motion.p variants={fadeUp} className="lp-hero__sub">
+            Find relevant jobs, tailor your applications, and spend less time filling forms and more time preparing for interviews.
+          </motion.p>
+          <motion.div variants={fadeUp} className="lp-hero__ctas">
+            <button className="lp-btn lp-btn--primary lp-btn--lg" onClick={onGetStarted}>
+              Start applying <ArrowRight size={16} />
+            </button>
+            <button className="lp-btn lp-btn--outline lp-btn--lg" onClick={onJobsClick}>
+              Browse jobs
+            </button>
+          </motion.div>
+          <motion.p variants={fadeUp} className="lp-hero__note">
+            Free for candidates &middot; No account required to browse
+          </motion.p>
         </motion.div>
-        <div className="lp-logos-fade-l" /><div className="lp-logos-fade-r" />
+        <div className="lp-hero__preview">
+          <DashboardPreview />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Metrics ───────────────────────────────────────────────────────────────────
+function MetricCounter({ to, suffix = "" }) {
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true });
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    if (!inView) return;
+    let start = 0;
+    const step = to / 50;
+    const t = setInterval(() => {
+      start += step;
+      if (start >= to) { setVal(to); clearInterval(t); }
+      else setVal(Math.floor(start));
+    }, 20);
+    return () => clearInterval(t);
+  }, [inView, to]);
+  return <span ref={ref}>{val.toLocaleString()}{suffix}</span>;
+}
+
+const METRICS = [
+  { label: "Jobs indexed", val: 24000, suffix: "+" },
+  { label: "Applications optimised", val: 8400, suffix: "+" },
+  { label: "Resume tailoring passes", val: 15000, suffix: "+" },
+  { label: "Hours saved per applicant", val: 12, suffix: "h" },
+];
+
+function Metrics() {
+  return (
+    <section className="lp-metrics">
+      <div className="lp-container">
+        <Reveal>
+          <p className="lp-metrics__label">Built for developers and ambitious job seekers</p>
+        </Reveal>
+        <div className="lp-metrics__grid">
+          {METRICS.map(m => (
+            <Reveal key={m.label} className="lp-metrics__card">
+              <div className="lp-metrics__val"><MetricCounter to={m.val} suffix={m.suffix} /></div>
+              <div className="lp-metrics__desc">{m.label}</div>
+            </Reveal>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -234,24 +244,25 @@ function LogoCloud() {
 
 // ── Features ──────────────────────────────────────────────────────────────────
 const FEATURES = [
-  { icon: <Brain size={24}/>, title: "AI Technical Interviews", desc: "Aria conducts intelligent, adaptive interviews that probe depth — not just keywords." },
-  { icon: <BarChart3 size={24}/>, title: "Instant Scoring", desc: "Every candidate gets an objective score with detailed breakdown the moment they finish." },
-  { icon: <Shield size={24}/>, title: "Bias-Free Evaluation", desc: "Structured, consistent interviews eliminate unconscious bias from your hiring funnel." },
-  { icon: <Zap size={24}/>, title: "10× Faster Screening", desc: "Screen 100 candidates in the time it takes to review 10 resumes manually." },
-  { icon: <Globe size={24}/>, title: "Any Stack, Any Role", desc: "Works for frontend, backend, data, ML, DevOps — configure once, run everywhere." },
-  { icon: <Users size={24}/>, title: "Team Collaboration", desc: "Share reviews, leave notes, and make decisions together inside one dashboard." },
+  { icon: <Search size={22} />, title: "Smart Job Discovery", desc: "HireAI scans multiple sources and surfaces roles that match your skills, experience, and preferences — not just keyword hits." },
+  { icon: <FileText size={22} />, title: "Resume Tailoring", desc: "Adapt your resume to each job description automatically. Keeps your experience truthful while maximising relevance." },
+  { icon: <Brain size={22} />, title: "AI Application Assistant", desc: "Generate compelling, personalised cover letters and application answers based on the job and your profile." },
+  { icon: <ListChecks size={22} />, title: "Application Tracking", desc: "One dashboard for every application. Track status, interviews, rejections, and offers without spreadsheets." },
+  { icon: <Zap size={22} />, title: "Match Scoring", desc: "Every job gets an AI match score so you can prioritise the strongest opportunities and skip poor fits." },
+  { icon: <BarChart2 size={22} />, title: "Candidate Analytics", desc: "Understand where you stand. Response rates, skills gaps, interview conversion — data to improve your search." },
 ];
+
 function FeatureCard({ f, i }) {
   const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: "-60px" });
+  const inView = useInView(ref, { once: true, margin: "-40px" });
   return (
-    <motion.div ref={ref} variants={scaleIn} initial="hidden" animate={inView ? "visible" : "hidden"}
-      transition={{ delay: (i % 3) * 0.1 }}
-      whileHover={{ y: -6, boxShadow: "0 20px 60px rgba(99,102,241,0.15)" }}
-      className="lp-feature-card">
-      <div className="lp-feature-icon">{f.icon}</div>
-      <h3 className="lp-feature-title">{f.title}</h3>
-      <p className="lp-feature-desc">{f.desc}</p>
+    <motion.div ref={ref} className="lp-feature-card"
+      variants={fadeUp} initial="hidden" animate={inView ? "visible" : "hidden"}
+      transition={{ delay: (i % 3) * 0.08 }}
+      whileHover={{ y: -4 }}>
+      <div className="lp-feature-card__icon">{f.icon}</div>
+      <h3 className="lp-feature-card__title">{f.title}</h3>
+      <p className="lp-feature-card__desc">{f.desc}</p>
     </motion.div>
   );
 }
@@ -259,9 +270,15 @@ function FeatureCard({ f, i }) {
 function Features() {
   return (
     <section id="features" className="lp-section">
-      <SectionHeading badge="Features" title="Everything you need to hire smarter" subtitle="One platform to screen, evaluate, and collaborate on every engineering hire." />
-      <div className="lp-features-grid">
-        {FEATURES.map((f, i) => <FeatureCard key={f.title} f={f} i={i} />)}
+      <div className="lp-container">
+        <Reveal className="lp-section-head">
+          <span className="lp-pill">Features</span>
+          <h2 className="lp-section-h2">Everything your job search needs</h2>
+          <p className="lp-section-sub">One platform to discover, apply, and track — powered by AI at every step.</p>
+        </Reveal>
+        <div className="lp-features-grid">
+          {FEATURES.map((f, i) => <FeatureCard key={f.title} f={f} i={i} />)}
+        </div>
       </div>
     </section>
   );
@@ -269,21 +286,23 @@ function Features() {
 
 // ── How it works ──────────────────────────────────────────────────────────────
 const STEPS = [
-  { n: "01", title: "Post a job", desc: "Describe your role. HireAI parses the JD and configures a custom interview automatically." },
-  { n: "02", title: "Candidates apply", desc: "Applicants submit their resume and are immediately placed into an AI-driven technical interview." },
-  { n: "03", title: "AI interviews everyone", desc: "Aria adapts questions in real time, probing depth, reasoning, and communication style." },
-  { n: "04", title: "Review scored results", desc: "Your dashboard shows ranked candidates with transcripts, scores, and hiring recommendations." },
+  { n: "01", title: "Create your profile", desc: "Upload your resume or paste your experience. HireAI builds a rich candidate profile from it." },
+  { n: "02", title: "Discover relevant jobs", desc: "AI matches your profile against thousands of live listings and surfaces the best fits first." },
+  { n: "03", title: "Let AI prepare your application", desc: "Tailor your resume, generate a cover letter, and prepare application answers — in seconds." },
+  { n: "04", title: "Track your progress", desc: "Monitor every application in one place. Never lose track of where you are in any process." },
 ];
-function Step({ s, i }) {
+
+function StepCard({ s, i }) {
   const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: "-60px" });
+  const inView = useInView(ref, { once: true, margin: "-40px" });
   return (
-    <motion.div ref={ref} variants={i % 2 === 0 ? slideLeft : slideRight}
-      initial="hidden" animate={inView ? "visible" : "hidden"} className="lp-step">
-      <div className="lp-step-num">{s.n}</div>
-      <div className="lp-step-content">
-        <h3 className="lp-step-title">{s.title}</h3>
-        <p className="lp-step-desc">{s.desc}</p>
+    <motion.div ref={ref} className="lp-step"
+      variants={fadeUp} initial="hidden" animate={inView ? "visible" : "hidden"}
+      transition={{ delay: i * 0.1 }}>
+      <div className="lp-step__num">{s.n}</div>
+      <div className="lp-step__body">
+        <h3 className="lp-step__title">{s.title}</h3>
+        <p className="lp-step__desc">{s.desc}</p>
       </div>
     </motion.div>
   );
@@ -291,259 +310,151 @@ function Step({ s, i }) {
 
 function HowItWorks() {
   return (
-    <section id="how-it-works" className="lp-section lp-section-alt">
-      <SectionHeading badge="Process" title="From job post to shortlist in hours" />
-      <div className="lp-timeline">
-        {STEPS.map((s, i) => <Step key={s.n} s={s} i={i} />)}
-      </div>
-    </section>
-  );
-}
-
-// ── Stats ─────────────────────────────────────────────────────────────────────
-function Counter({ to, suffix = "" }) {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true });
-  const [val, setVal] = useState(0);
-  useEffect(() => {
-    if (!inView) return;
-    let start = 0;
-    const step = to / 60;
-    const timer = setInterval(() => {
-      start += step;
-      if (start >= to) { setVal(to); clearInterval(timer); }
-      else setVal(Math.floor(start));
-    }, 16);
-    return () => clearInterval(timer);
-  }, [inView, to]);
-  return <span ref={ref}>{val.toLocaleString()}{suffix}</span>;
-}
-
-const STATS = [
-  { label: "Candidates screened", val: 12000, suffix: "+" },
-  { label: "Companies hiring", val: 480, suffix: "+" },
-  { label: "Hours saved per hire", val: 24, suffix: "h" },
-  { label: "Platform uptime", val: 99, suffix: ".9%" },
-];
-function Stats() {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: "-60px" });
-  return (
-    <section className="lp-stats-section">
-      <motion.div ref={ref} className="lp-stats-grid" variants={stagger} initial="hidden" animate={inView ? "visible" : "hidden"}>
-        {STATS.map(s => (
-          <motion.div key={s.label} variants={scaleIn} className="lp-stat-card">
-            <div className="lp-stat-val"><Counter to={s.val} suffix={s.suffix} /></div>
-            <div className="lp-stat-label">{s.label}</div>
-          </motion.div>
-        ))}
-      </motion.div>
-    </section>
-  );
-}
-
-// ── Testimonials ──────────────────────────────────────────────────────────────
-const TESTIMONIALS = [
-  { name: "Sarah Kim", role: "VP Engineering, Finly", text: "We cut our screening time from 3 weeks to 3 days. HireAI's scoring is eerily accurate — every A-player it flagged has been a top performer.", stars: 5 },
-  { name: "Marcus Webb", role: "CTO, BuildStack", text: "The AI interviews are genuinely impressive. Candidates say it feels fair and thorough. Our offer acceptance rate went up because the process became faster.", stars: 5 },
-  { name: "Priya Nair", role: "Head of Talent, Zerobase", text: "Finally a tool that gives engineers a real interview experience, not just a quiz. The transcripts help us onboard faster too.", stars: 5 },
-];
-function Testimonials() {
-  const [active, setActive] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setActive(a => (a + 1) % TESTIMONIALS.length), 5000);
-    return () => clearInterval(t);
-  }, []);
-  return (
-    <section className="lp-section lp-section-alt">
-      <SectionHeading badge="Testimonials" title="Loved by hiring teams" />
-      <div className="lp-testimonials">
-        <AnimatePresence mode="wait">
-          <motion.div key={active} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -30 }} transition={{ duration: 0.5 }} className="lp-testimonial-card">
-            <div className="lp-stars">{Array(TESTIMONIALS[active].stars).fill(0).map((_, i) => <Star key={i} size={16} fill="#fbbf24" color="#fbbf24" />)}</div>
-            <p className="lp-testimonial-text">"{TESTIMONIALS[active].text}"</p>
-            <div className="lp-testimonial-author">
-              <div className="lp-testimonial-avatar">{TESTIMONIALS[active].name[0]}</div>
-              <div>
-                <div className="lp-testimonial-name">{TESTIMONIALS[active].name}</div>
-                <div className="lp-testimonial-role">{TESTIMONIALS[active].role}</div>
-              </div>
-            </div>
-          </motion.div>
-        </AnimatePresence>
-        <div className="lp-dots">
-          {TESTIMONIALS.map((_, i) => (
-            <button key={i} className={`lp-dot-btn ${i === active ? "active" : ""}`} onClick={() => setActive(i)} aria-label={`Testimonial ${i+1}`} />
-          ))}
+    <section id="how-it-works" className="lp-section lp-section--alt">
+      <div className="lp-container">
+        <Reveal className="lp-section-head">
+          <span className="lp-pill">Process</span>
+          <h2 className="lp-section-h2">From profile to offer in four steps</h2>
+        </Reveal>
+        <div className="lp-steps">
+          {STEPS.map((s, i) => <StepCard key={s.n} s={s} i={i} />)}
         </div>
       </div>
     </section>
   );
 }
 
-// ── Pricing ───────────────────────────────────────────────────────────────────
-const PRICING = [
-  { name: "Free", price: 0, period: "forever", features: ["1 active job post", "AI interviews", "Candidate scoring", "Basic analytics"], cta: "Get started", highlight: false },
-  { name: "Growth", price: 199, period: "month", features: ["20 active job posts", "AI interviews", "Advanced scoring", "Full analytics", "Priority support"], cta: "Subscribe", highlight: true },
-  { name: "Enterprise", price: null, period: "custom", features: ["Unlimited posts", "Custom AI tuning", "Dedicated support", "SLA guarantee", "Custom integrations"], cta: "Contact sales", highlight: false },
-];
-function PricingCard({ p, i, onGetStarted }) {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: "-40px" });
+// ── AI section ────────────────────────────────────────────────────────────────
+function AISection() {
   return (
-    <motion.div ref={ref} variants={fadeUp} initial="hidden" animate={inView ? "visible" : "hidden"}
-      transition={{ delay: i * 0.12 }}
-      whileHover={{ y: -8, boxShadow: p.highlight ? "0 0 60px rgba(99,102,241,0.35)" : "0 20px 60px rgba(0,0,0,0.3)" }}
-      className={`lp-pricing-card ${p.highlight ? "lp-pricing-featured" : ""}`}>
-      {p.highlight && <div className="lp-pricing-badge">Most popular</div>}
-      <h3 className="lp-pricing-name">{p.name}</h3>
-      <div className="lp-pricing-price">
-        {p.price === null ? <span className="lp-price-custom">Custom</span>
-          : p.price === 0 ? <span className="lp-price-free">Free</span>
-          : <><span className="lp-price-currency">₹</span><span className="lp-price-num">{p.price}</span><span className="lp-price-period">/{p.period}</span></>}
-      </div>
-      <ul className="lp-pricing-features">
-        {p.features.map(f => <li key={f}><Check size={15} />{f}</li>)}
-      </ul>
-      <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-        className={p.highlight ? "lp-btn-primary lp-btn-full" : "lp-btn-outline lp-btn-full"}
-        onClick={onGetStarted}>{p.cta}</motion.button>
-    </motion.div>
-  );
-}
-
-function Pricing({ onHirerClick }) {
-  return (
-    <section id="pricing" className="lp-section">
-      <SectionHeading badge="Pricing" title="Simple, transparent pricing" subtitle="Start free. Scale when you're ready." />
-      <div className="lp-pricing-grid">
-        {PRICING.map((p, i) => <PricingCard key={p.name} p={p} i={i} onGetStarted={onHirerClick} />)}
+    <section className="lp-ai-section">
+      <div className="lp-container">
+        <Reveal className="lp-section-head lp-section-head--light">
+          <span className="lp-pill lp-pill--dark">AI engine</span>
+          <h2 className="lp-section-h2 lp-section-h2--light">AI that understands the job,<br />not just the keywords.</h2>
+          <p className="lp-section-sub lp-section-sub--light">Semantic analysis, not regex matching. HireAI reads job descriptions the way a recruiter does.</p>
+        </Reveal>
+        <div className="lp-ai-flow">
+          {["Job description", "AI analysis", "Tailored resume", "Application ready"].map((label, i) => (
+            <Reveal key={label} delay={i * 0.1} className="lp-ai-flow__step">
+              <div className="lp-ai-flow__box">{label}</div>
+              {i < 3 && <ChevronRight className="lp-ai-flow__arrow" size={18} aria-hidden />}
+            </Reveal>
+          ))}
+        </div>
+        <Reveal delay={0.4}>
+          <div className="lp-ai-card">
+            <div className="lp-ai-card__label"><Brain size={14} /> AI analysis example</div>
+            <div className="lp-ai-card__row">
+              <div className="lp-ai-card__col">
+                <div className="lp-ai-card__col-head">Job requires</div>
+                {["5y React experience", "TypeScript proficiency", "Design system knowledge", "Cross-functional collab"].map(r => (
+                  <div key={r} className="lp-ai-card__item lp-ai-card__item--req">{r}</div>
+                ))}
+              </div>
+              <div className="lp-ai-card__divider" aria-hidden />
+              <div className="lp-ai-card__col">
+                <div className="lp-ai-card__col-head">Your profile matches</div>
+                {["6y React, Next.js", "TypeScript &mdash; daily use", "Led Figma → code system", "3 cross-team projects"].map(m => (
+                  <div key={m} className="lp-ai-card__item lp-ai-card__item--match" dangerouslySetInnerHTML={{ __html: `<span class='lp-check'><svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='3'><polyline points='20 6 9 17 4 12'/></svg></span> ${m}` }} />
+                ))}
+              </div>
+            </div>
+            <div className="lp-ai-card__score">Match score <strong>92%</strong></div>
+          </div>
+        </Reveal>
       </div>
     </section>
   );
 }
 
-// ── FAQ ───────────────────────────────────────────────────────────────────────
-const FAQS = [
-  { q: "How does the AI interview work?", a: "Aria, our AI interviewer, adapts questions based on the candidate's resume and responses in real time — probing technical depth, reasoning, and communication just like a senior engineer would." },
-  { q: "Can I customise the interview for my stack?", a: "Yes. HireAI parses your job description and configures relevant questions automatically. You can also add custom questions or topics." },
-  { q: "Is the free plan really free?", a: "Yes. The free tier lets you post 1 job and screen unlimited candidates on that role, forever. No credit card required." },
-  { q: "How accurate is the scoring?", a: "Our scoring correlates strongly with human assessments. Teams report that candidates ranked in the top quartile by HireAI consistently outperform those who weren't." },
-  { q: "Does it work for non-engineering roles?", a: "It's optimised for technical roles today. Support for product, design, and operations roles is coming soon." },
-];
-function FAQ() {
-  const [open, setOpen] = useState(null);
+// ── Open source ───────────────────────────────────────────────────────────────
+function OpenSource() {
   return (
-    <section id="faq" className="lp-section lp-section-alt">
-      <SectionHeading badge="FAQ" title="Questions, answered" />
-      <div className="lp-faq">
-        {FAQS.map((f, i) => (
-          <motion.div key={i} className={`lp-faq-item ${open === i ? "open" : ""}`} layout>
-            <button className="lp-faq-q" onClick={() => setOpen(open === i ? null : i)} aria-expanded={open === i}>
-              <span>{f.q}</span>
-              <motion.span animate={{ rotate: open === i ? 45 : 0 }} transition={{ duration: 0.25 }} className="lp-faq-icon">+</motion.span>
-            </button>
-            <AnimatePresence initial={false}>
-              {open === i && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3, ease: "easeInOut" }}
-                  className="lp-faq-a"><p>{f.a}</p></motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        ))}
+    <section className="lp-section lp-section--alt">
+      <div className="lp-container">
+        <Reveal className="lp-oss">
+          <GitBranch size={36} className="lp-oss__icon" />
+          <h2 className="lp-section-h2">Built in the open.</h2>
+          <p className="lp-section-sub">HireAI is open source. Inspect the code, contribute features, report bugs, and build on the platform.</p>
+          <a href="https://github.com/mehtahet619/hireai-recruitment" target="_blank" rel="noopener noreferrer"
+            className="lp-btn lp-btn--outline lp-btn--lg">
+            <GitBranch size={18} /> View on GitHub
+          </a>
+        </Reveal>
       </div>
     </section>
   );
 }
 
 // ── Final CTA ─────────────────────────────────────────────────────────────────
-function FinalCTA({ onHirerClick, onCandidateClick }) {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: "-80px" });
+function FinalCTA({ onGetStarted }) {
   return (
     <section className="lp-cta-section">
-      <Blobs />
-      <motion.div ref={ref} variants={stagger} initial="hidden" animate={inView ? "visible" : "hidden"} className="lp-cta-inner">
-        <motion.h2 variants={fadeUp} className="lp-cta-h2">Ready to transform your hiring?</motion.h2>
-        <motion.p variants={fadeUp} className="lp-cta-sub">Two portals, one platform — whether you're screening talent or landing your next role.</motion.p>
-        <motion.div variants={fadeUp} className="lp-portal-choice">
-          <motion.button whileHover={{ scale: 1.06, boxShadow: "0 0 40px rgba(99,102,241,0.5)" }}
-            whileTap={{ scale: 0.95 }} className="lp-portal-btn lp-portal-hirer" onClick={onHirerClick}>
-            <div className="lp-portal-icon">🏢</div>
-            <div>
-              <div className="lp-portal-label">Employer portal</div>
-              <div className="lp-portal-desc">Post jobs, run AI interviews, hire faster</div>
-            </div>
-            <ArrowRight size={18} className="lp-portal-arrow" />
-          </motion.button>
-          <motion.button whileHover={{ scale: 1.06, boxShadow: "0 0 40px rgba(56,189,248,0.3)" }}
-            whileTap={{ scale: 0.95 }} className="lp-portal-btn lp-portal-candidate" onClick={onCandidateClick}>
-            <div className="lp-portal-icon">🧑‍💻</div>
-            <div>
-              <div className="lp-portal-label">Candidate portal</div>
-              <div className="lp-portal-desc">Find jobs, get interviewed by AI, get scored</div>
-            </div>
-            <ArrowRight size={18} className="lp-portal-arrow" />
-          </motion.button>
-        </motion.div>
-      </motion.div>
+      <div className="lp-cta-section__glow" aria-hidden />
+      <div className="lp-container">
+        <Reveal className="lp-cta">
+          <h2 className="lp-cta__h2">Stop searching endlessly.<br />Start applying smarter.</h2>
+          <p className="lp-cta__sub">Let HireAI handle the repetitive parts of your job search so you can focus on getting hired.</p>
+          <button className="lp-btn lp-btn--primary lp-btn--lg" onClick={onGetStarted}>
+            Get started <ArrowRight size={16} />
+          </button>
+        </Reveal>
+      </div>
     </section>
   );
 }
 
 // ── Footer ────────────────────────────────────────────────────────────────────
 function Footer() {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: "-40px" });
   return (
-    <motion.footer ref={ref} variants={fadeIn} initial="hidden" animate={inView ? "visible" : "hidden"} className="lp-footer">
-      <div className="lp-footer-inner">
-        <div className="lp-footer-brand">
-          <div className="lp-footer-logo"><div className="lp-logo-dot" /><span className="lp-logo-text">HireAI</span></div>
-          <p className="lp-footer-tagline">AI-powered technical hiring for modern engineering teams.</p>
-          <div className="lp-footer-socials">
-            {[<GitBranch size={18}/>, <Mail size={18}/>, <Globe2 size={18}/>].map((icon, i) => (
-              <motion.a key={i} href="#" whileHover={{ scale: 1.2, color: "#818cf8" }} className="lp-social-link">{icon}</motion.a>
-            ))}
+    <footer className="lp-footer">
+      <div className="lp-container lp-footer__inner">
+        <div className="lp-footer__brand">
+          <div className="lp-nav__brand">
+            <span className="lp-nav__dot" />
+            <span className="lp-nav__name">HireAI</span>
           </div>
+          <p className="lp-footer__tagline">AI-powered job search for the modern candidate.</p>
         </div>
-        <div className="lp-footer-cols">
+        <div className="lp-footer__cols">
           {[
-            { title: "Product", links: ["Features", "Pricing", "Changelog", "Roadmap"] },
-            { title: "Company", links: ["About", "Blog", "Careers", "Press"] },
-            { title: "Legal", links: ["Privacy", "Terms", "Security", "Cookies"] },
+            { head: "Product", links: [{ label: "Features", href: "#features" }, { label: "Pricing", href: "#pricing" }, { label: "How it works", href: "#how-it-works" }] },
+            { head: "Company", links: [{ label: "GitHub", href: "https://github.com/mehtahet619/hireai-recruitment", external: true }, { label: "Privacy", href: "#" }, { label: "Terms", href: "#" }] },
           ].map(col => (
-            <div key={col.title} className="lp-footer-col">
-              <div className="lp-footer-col-title">{col.title}</div>
-              {col.links.map(l => <a key={l} href="#" className="lp-footer-link">{l}</a>)}
+            <div key={col.head} className="lp-footer__col">
+              <div className="lp-footer__col-head">{col.head}</div>
+              {col.links.map(l => (
+                <a key={l.label} href={l.href} className="lp-footer__link"
+                  target={l.external ? "_blank" : undefined}
+                  rel={l.external ? "noopener noreferrer" : undefined}>
+                  {l.label}
+                </a>
+              ))}
             </div>
           ))}
         </div>
       </div>
-      <div className="lp-footer-bottom">
-        <span>© 2026 HireAI. All rights reserved.</span>
-        <span>Built with ❤️ for engineering teams</span>
+      <div className="lp-container lp-footer__bottom">
+        <span>&copy; {new Date().getFullYear()} HireAI. All rights reserved.</span>
+        <span>Open source &middot; MIT licence</span>
       </div>
-    </motion.footer>
+    </footer>
   );
 }
 
-// ── Main export ───────────────────────────────────────────────────────────────
+// ── Root export ───────────────────────────────────────────────────────────────
 export default function LandingPage({ onHirerClick, onCandidateClick }) {
   return (
     <div className="lp-root">
-      <Navbar onHirerClick={onHirerClick} onCandidateClick={onCandidateClick} />
-      <Hero onHirerClick={onHirerClick} onCandidateClick={onCandidateClick} />
-      <LogoCloud />
+      <Navbar onGetStarted={onHirerClick} onLogin={onHirerClick} />
+      <Hero onGetStarted={onHirerClick} onJobsClick={onCandidateClick} />
+      <Metrics />
       <Features />
       <HowItWorks />
-      <Stats />
-      <Testimonials />
-      <Pricing onHirerClick={onHirerClick} />
-      <FAQ />
-      <FinalCTA onHirerClick={onHirerClick} onCandidateClick={onCandidateClick} />
+      <AISection />
+      <OpenSource />
+      <FinalCTA onGetStarted={onHirerClick} />
       <Footer />
     </div>
   );
